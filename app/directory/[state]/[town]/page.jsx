@@ -8,13 +8,17 @@ import AdSenseBanner from '@/components/AdSenseBanner';
 async function getDirectoryData(stateParam, townParam) {
   try {
     // 1. Fetch target town details (matching slug or name)
-    const townSql = `
-      SELECT id, state, lga, name, slug 
-      FROM towns 
-      WHERE LOWER(state) = LOWER($1) 
-        AND (LOWER(slug) = LOWER($2) OR LOWER(name) = LOWER($2)) 
-        AND is_active = true;
-    `;
+const townSql = `
+  SELECT id, state, lga, name, slug 
+  FROM towns 
+  WHERE LOWER(state) = LOWER($1) 
+    AND (
+      LOWER(slug) = LOWER($2) 
+      OR LOWER(name) = LOWER($2) 
+      OR LOWER(slug) LIKE '%' || LOWER($2)
+    )
+    AND is_active = true;
+`;
     const townRes = await query(townSql, [stateParam, townParam]);
     if (!townRes || !townRes.rows || townRes.rows.length === 0) return null;
 
