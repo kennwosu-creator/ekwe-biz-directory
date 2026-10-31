@@ -17,7 +17,8 @@ const townSql = `
       OR LOWER(name) = LOWER($2) 
       OR LOWER(slug) LIKE '%' || LOWER($2)
     )
-    AND is_active = true;
+    AND is_active = true
+  LIMIT 1;
 `;
     const townRes = await query(townSql, [stateParam, townParam]);
     if (!townRes || !townRes.rows || townRes.rows.length === 0) return null;
