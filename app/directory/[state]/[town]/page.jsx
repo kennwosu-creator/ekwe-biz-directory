@@ -16,7 +16,7 @@ async function getDirectoryData(stateParam, townParam) {
         AND is_active = true;
     `;
     const townRes = await query(townSql, [stateParam, townParam]);
-    if (!townRes || townRes.rows.length === 0) return null;
+    if (!townRes || !townRes.rows || townRes.rows.length === 0) return null;
 
     const town = townRes.rows[0];
 
@@ -54,32 +54,45 @@ async function getDirectoryData(stateParam, townParam) {
     };
   } catch (error) {
     console.error('Error in getDirectoryData:', error);
-    return null; // Return null gracefully to allow fallback rendering
+    return null;
   }
 }
 
+// Fixed metadata generator to prevent triggering unintended 404s
 export async function generateMetadata({ params }) {
-  try {
-    const { state, town } = await params;
-    const data = await getDirectoryData(state, town);
-    if (!data) return { title: 'Directory Not Found' };
+  const { state, town } = await params;
+  const capitalizedTown = town ? town.charAt(0).toUpperCase() + town.slice(1) : 'Local';
+  const capitalizedState = state ? state.charAt(0).toUpperCase() + state.slice(1) : '';
 
-    const townName = data.town.name;
-    return {
-      title: `${townName} Business Directory - Local Shops & Services`,
-      description: `Find verified local businesses, shops, and products in ${townName}, ${data.town.state} State.`,
-    };
-  } catch (error) {
-    return { title: 'Local Business Directory' };
-  }
+  return {
+    title: `${capitalizedTown} Business Directory - Local Shops & Services`,
+    description: `Find verified local businesses, shops, and products in ${capitalizedTown}, ${capitalizedState} State.`,
+  };
 }
 
 export default async function RegionalDirectoryPage({ params }) {
   const { state, town: townParam } = await params;
   const data = await getDirectoryData(state, townParam);
 
+  // If town isn't found in DB, return a friendly fallback state instead of calling notFound()
   if (!data) {
-    notFound();
+    return (
+      <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16 flex flex-col items-center justify-center p-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3 max-w-sm">
+          <span className="text-4xl">📍</span>
+          <h2 className="text-base font-bold text-slate-900 capitalize">Town Directory Not Found</h2>
+          <p className="text-xs text-slate-500">
+            We couldn't find listings for <strong className="capitalize">{townParam}</strong> in {state} State.
+          </p>
+          <Link
+            href="/"
+            className="inline-block bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition mt-2"
+          >
+            ← Back to All Towns
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const { town, businesses, categories } = data;
