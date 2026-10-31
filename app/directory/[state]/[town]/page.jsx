@@ -4,63 +4,74 @@ import Image from 'next/image';
 import Link from 'next/link';
 import AdSenseBanner from '@/components/AdSenseBanner';
 
-// Fetch town details and active local businesses
+// Fetch town details and active local businesses safely
 async function getDirectoryData(stateParam, townParam) {
-  // 1. Fetch target town details
-  const townSql = `
-    SELECT id, state, lga, name, slug 
-    FROM towns 
-    WHERE LOWER(state) = LOWER($1) AND LOWER(name) = LOWER($2) AND is_active = true;
-  `;
-  const townRes = await query(townSql, [stateParam, townParam]);
-  if (townRes.rows.length === 0) return null;
+  try {
+    // 1. Fetch target town details (matching slug or name)
+    const townSql = `
+      SELECT id, state, lga, name, slug 
+      FROM towns 
+      WHERE LOWER(state) = LOWER($1) 
+        AND (LOWER(slug) = LOWER($2) OR LOWER(name) = LOWER($2)) 
+        AND is_active = true;
+    `;
+    const townRes = await query(townSql, [stateParam, townParam]);
+    if (!townRes || townRes.rows.length === 0) return null;
 
-  const town = townRes.rows[0];
+    const town = townRes.rows[0];
 
-  // 2. Fetch all businesses registered under this town
-  const bizSql = `
-    SELECT 
-      b.id,
-      b.name,
-      b.slug,
-      b.address,
-      b.phone,
-      b.whatsapp_number,
-      b.image_url,
-      b.is_featured,
-      b.is_verified,
-      COALESCE(
-        json_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '[]'
-      ) as products_sample
-    FROM businesses b
-    LEFT JOIN products p ON b.id = p.business_id
-    WHERE b.town_id = $1 AND b.status = 'active'
-    GROUP BY b.id
-    ORDER BY b.is_featured DESC, b.created_at DESC;
-  `;
+    // 2. Fetch all businesses registered under this town
+    const bizSql = `
+      SELECT 
+        b.id,
+        b.name,
+        b.slug,
+        b.address,
+        b.phone,
+        b.whatsapp_number,
+        b.image_url,
+        b.is_featured,
+        b.is_verified,
+        COALESCE(
+          json_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '[]'
+        ) as products_sample
+      FROM businesses b
+      LEFT JOIN products p ON b.id = p.business_id
+      WHERE b.town_id = $1 AND b.status = 'active'
+      GROUP BY b.id
+      ORDER BY b.is_featured DESC, b.created_at DESC;
+    `;
 
-  const bizRes = await query(bizSql, [town.id]);
+    const bizRes = await query(bizSql, [town.id]);
 
-  // 3. Fetch active product categories for filtering
-  const categoriesRes = await query('SELECT name FROM categories ORDER BY name ASC');
+    // 3. Fetch active product categories for filtering
+    const categoriesRes = await query('SELECT name FROM categories ORDER BY name ASC');
 
-  return {
-    town,
-    businesses: bizRes.rows,
-    categories: categoriesRes.rows,
-  };
+    return {
+      town,
+      businesses: bizRes ? bizRes.rows : [],
+      categories: categoriesRes ? categoriesRes.rows : [],
+    };
+  } catch (error) {
+    console.error('Error in getDirectoryData:', error);
+    return null; // Return null gracefully to allow fallback rendering
+  }
 }
 
 export async function generateMetadata({ params }) {
-  const { state, town } = await params;
-  const data = await getDirectoryData(state, town);
-  if (!data) return { title: 'Directory Not Found' };
+  try {
+    const { state, town } = await params;
+    const data = await getDirectoryData(state, town);
+    if (!data) return { title: 'Directory Not Found' };
 
-  const townName = data.town.name;
-  return {
-    title: `${townName} Business Directory - Local Shops & Services`,
-    description: `Find verified local businesses, shops, and products in ${townName}, ${data.town.state} State.`,
-  };
+    const townName = data.town.name;
+    return {
+      title: `${townName} Business Directory - Local Shops & Services`,
+      description: `Find verified local businesses, shops, and products in ${townName}, ${data.town.state} State.`,
+    };
+  } catch (error) {
+    return { title: 'Local Business Directory' };
+  }
 }
 
 export default async function RegionalDirectoryPage({ params }) {
@@ -131,14 +142,14 @@ export default async function RegionalDirectoryPage({ params }) {
                 >
                   <div className="flex gap-3.5">
                     <div className="relative h-20 w-20 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
-  <Image
-    src={biz.image_url || '/uploads/placeholder-shop.jpg'}
-    alt={biz.name}
-    fill
-    sizes="80px"
-    className="object-cover"
-  />
-</div>
+                      <Image
+                        src={biz.image_url || '/uploads/placeholder-shop.jpg'}
+                        alt={biz.name}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
