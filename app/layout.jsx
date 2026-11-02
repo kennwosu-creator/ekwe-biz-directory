@@ -1,4 +1,5 @@
 import './globals.css';
+import InstallPrompt from '@/components/InstallPrompt';
 
 export const metadata = {
   title: {
@@ -15,6 +16,13 @@ export const metadata = {
     'Owerri Local Shops',
     'Nigeria Rural Commerce',
   ],
+  manifest: '/manifest.json',
+  themeColor: '#064e3b',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'CommunityShops',
+  },
   openGraph: {
     title: 'CommunityShops - Local Village & Market Directory',
     description:
@@ -28,8 +36,12 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
       <body className="bg-slate-100 text-slate-800 antialiased min-h-screen font-sans">
         {children}
+        <InstallPrompt />
       </body>
     </html>
   );
