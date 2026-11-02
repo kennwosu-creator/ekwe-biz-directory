@@ -84,8 +84,8 @@ export async function generateMetadata({ params }) {
   const capitalizedState = state ? state.charAt(0).toUpperCase() + state.slice(1) : '';
 
   return {
-    title: `${capitalizedTown} Business Directory - Local Shops & Services`,
-    description: `Find verified local businesses, shops, and products in ${capitalizedTown}, ${capitalizedState} State.`,
+    title: `${capitalizedTown} Community Directory - Verified Local Shops & Services | CommunityShops`,
+    description: `Find local village shops, merchants, and goods in ${capitalizedTown}, ${capitalizedState} State on CommunityShops.`,
   };
 }
 

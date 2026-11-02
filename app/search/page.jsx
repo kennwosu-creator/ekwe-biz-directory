@@ -132,11 +132,17 @@ async function getSearchResults(params) {
   }
 }
 
-export async function generateMetadata(props) {
-  const searchParams = await props.searchParams;
-  const q = searchParams?.q || '';
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params;
+  const state = resolvedParams?.state || '';
+  const town = resolvedParams?.town || '';
+
+  const capitalizedTown = town ? town.charAt(0).toUpperCase() + town.slice(1) : 'Local';
+  const capitalizedState = state ? state.charAt(0).toUpperCase() + state.slice(1) : '';
+
   return {
-    title: q ? `Search results for "${q}" - Ekwe Biz Directory` : 'Advanced Shop Search',
+    title: `${capitalizedTown} Community Directory - Verified Local Shops & Services | CommunityShops`,
+    description: `Find local village shops, merchants, and goods in ${capitalizedTown}, ${capitalizedState} State on CommunityShops.`,
   };
 }
 

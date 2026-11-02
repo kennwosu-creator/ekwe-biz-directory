@@ -1,13 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdvancedSearch({ towns = [], categories = [], initialParams = {} }) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
-  const [useGps, setUseGps] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
+
+  // Auto-open filter drawer if active filters exist in initialParams
+  const hasInitialFilters = Boolean(
+    initialParams.town || initialParams.category || (initialParams.lat && initialParams.lng)
+  );
+
+  const [isOpen, setIsOpen] = useState(hasInitialFilters);
+  const [useGps, setUseGps] = useState(Boolean(initialParams.lat && initialParams.lng));
+  const [userLocation, setUserLocation] = useState(
+    initialParams.lat && initialParams.lng
+      ? { lat: parseFloat(initialParams.lat), lng: parseFloat(initialParams.lng) }
+      : null
+  );
   const [locating, setLocating] = useState(false);
 
   // Form State
@@ -58,7 +68,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 text-xs font-sans">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-4 text-xs font-sans">
       {/* BASIC SEARCH BAR */}
       <form onSubmit={handleSearch} className="space-y-3">
         <div className="relative flex items-center">
@@ -67,14 +77,14 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
             value={queryStr}
             onChange={(e) => setQueryStr(e.target.value)}
             placeholder="Search items or shops (e.g., beer, cold drinks, mechanic)..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-24 py-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-24 py-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
           />
           <span className="absolute left-3 text-slate-400">🔍</span>
 
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="absolute right-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2.5 py-1.5 rounded-lg transition text-[11px] flex items-center gap-1"
+            className="absolute right-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2.5 py-1.5 rounded-lg transition text-[11px] flex items-center gap-1 cursor-pointer"
           >
             <span>⚙️ Filters</span>
             <span>{isOpen ? '▲' : '▼'}</span>
@@ -84,26 +94,26 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
         {/* EXPANDABLE ADVANCED FILTER DRAWER */}
         {isOpen && (
           <div className="pt-3 border-t border-slate-100 space-y-4 animate-fadeIn">
-            {/* 1. TOWN SELECTION DROPDOWN */}
+            {/* VILLAGE / TOWN / MARKET SELECTION DROPDOWN */}
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                📍 Restrict to Town / Market
+                📍 Filter by Village / Community / Market
               </label>
               <select
                 value={selectedTown}
                 onChange={(e) => setSelectedTown(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
-                <option value="">All Towns (Imo State)</option>
-                {towns.map((town) => (
-                  <option key={town.slug} value={town.slug}>
-                    {town.name} ({town.lga} LGA)
+                <option value="">All Communities & Towns</option>
+                {towns.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name} ({t.lga} LGA)
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* 2. CATEGORY SELECTION DROPDOWN */}
+            {/* PRODUCT CATEGORY DROPDOWN */}
             <div>
               <label className="block text-[11px] font-bold text-slate-700 mb-1">
                 🏷️ Product Category
@@ -111,7 +121,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 cursor-pointer"
               >
                 <option value="">All Categories</option>
                 {categories.map((cat) => (
@@ -122,7 +132,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
               </select>
             </div>
 
-            {/* 3. PROXIMITY RADIUS SEARCH (GPS) */}
+            {/* PROXIMITY RADIUS SEARCH (GPS) */}
             <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-emerald-900 flex items-center gap-1.5">
@@ -132,7 +142,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
                   type="button"
                   onClick={handleGetLocation}
                   disabled={locating}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition cursor-pointer"
                 >
                   {locating ? 'Locating...' : useGps ? '✓ Location Active' : 'Use My GPS'}
                 </button>
@@ -156,7 +166,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
                   <div className="flex justify-between text-[9px] text-emerald-600">
                     <span>500m (Walking)</span>
                     <span>5 KM</span>
-                    <span>15 KM (Town Boundary)</span>
+                    <span>15 KM (Community Boundary)</span>
                   </div>
                 </div>
               )}
@@ -167,7 +177,7 @@ export default function AdvancedSearch({ towns = [], categories = [], initialPar
         {/* SUBMIT BUTTON */}
         <button
           type="submit"
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition shadow-xs text-xs"
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition shadow-xs text-xs cursor-pointer"
         >
           Apply Filters & Search
         </button>

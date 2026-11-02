@@ -7,7 +7,7 @@ export default function WhatsAppButton({ whatsappNumber, businessName }) {
     e.preventDefault();
     e.stopPropagation();
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-      `Hello ${businessName}, I found your shop on Ekwe Business Directory.`
+      `Hello ${businessName}, I found your shop on CommunityShops.`
     )}`;
     window.open(url, '_blank');
   };
