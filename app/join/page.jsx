@@ -6,7 +6,9 @@ export const metadata = {
 };
 
 export default function JoinPage() {
-  const whatsappNumber = '2348030000000'; // Replace with your official onboarding line
+  // Your official System Onboarding Line (E.164 format: no '+' or spaces)
+  const systemWhatsappNumber = '14165261826'; 
+
   const whatsappMessage = encodeURIComponent(
     'Hello! I would like to register my business on CommunityShops.'
   );
@@ -24,7 +26,7 @@ export default function JoinPage() {
 
         <div className="pt-2 space-y-2">
           <a
-            href={`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`}
+            href={`https://wa.me/${systemWhatsappNumber}?text=${whatsappMessage}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-xs transition"

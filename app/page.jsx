@@ -1,102 +1,189 @@
-import Link from 'next/link';
+export const dynamic = 'force-dynamic';
 
-export default function HomePage() {
+import { query } from '@/lib/db';
+import Link from 'next/link';
+import Image from 'next/image';
+
+async function getActiveTowns() {
+  try {
+    const res = await query(
+      'SELECT id, name, slug, lga, state FROM public.towns WHERE is_active = true ORDER BY name ASC'
+    );
+    return res ? res.rows : [];
+  } catch (error) {
+    console.error('Error fetching towns on home page:', error);
+    return [];
+  }
+}
+
+export async function generateMetadata() {
+  return {
+    title: 'CommunityShops - Local Village & Market Directory Across Nigeria',
+    description:
+      'Find verified local shops, markets, and services across Ekwe, Owerri, Imo State, and communities across Nigeria.',
+  };
+}
+
+export default async function HomePage() {
+  const towns = await getActiveTowns();
+
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
-      {/* HERO HEADER */}
-      <header className="bg-emerald-800 text-white px-4 py-8 text-center space-y-3 shadow-md">
-        <span className="text-4xl">🏪</span>
-        <h1 className="text-xl font-extrabold tracking-tight">Ekwe Local Business Directory</h1>
-        <p className="text-xs text-emerald-100 max-w-xs mx-auto">
-          Find verified shops, markets, and services across Ekwe & Imo State. Contact traders directly on WhatsApp.
-        </p>
-
-        {/* SEARCH BAR */}
-        <div className="pt-2 max-w-md mx-auto">
-          <form action="/search" method="GET" className="relative">
-            <input
-              type="text"
-              name="q"
-              placeholder="Search rice, beer, garri, mechanics..."
-              className="w-full bg-white text-slate-800 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm"
-            />
-            <span className="absolute left-3.5 top-3.5 text-slate-400 text-xs">🔍</span>
-          </form>
+      {/* BRAND BANNER HEADER */}
+      <section className="bg-emerald-950 text-white shadow-md">
+        {/* BRAND TITLE BAR */}
+        <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
+          <div className="max-w-md mx-auto flex items-center justify-center gap-2">
+            <span className="text-xl">🏪</span>
+            <h1 className="text-base font-extrabold tracking-tight">
+              Community<span className="text-emerald-400">Shops</span>
+            </h1>
+          </div>
+          <p className="text-[10px] text-emerald-200 uppercase tracking-widest font-bold mt-0.5">
+            YOUR VILLAGE & LOCAL MARKET DIRECTORY
+          </p>
         </div>
-      </header>
 
-      <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
-        {/* REGIONAL DIRECTORIES */}
+        {/* HERO IMAGE CONTAINER - FIXED HEIGHT WITH FALLBACK */}
+        <div className="relative w-full h-56 md:h-64 bg-emerald-950 overflow-hidden">
+          <Image
+            src="/images/village-kiosk.jpg"
+            alt="Vibrant village market kiosk"
+            fill
+            sizes="100vw"
+            priority
+            className="object-cover object-center"
+          />
+          {/* GRADIENT OVERLAY */}
+          <div className="absolute inset-0 bg-gradient-to-t from-emerald-950 via-emerald-950/20 to-transparent" />
+        </div>
+
+        {/* FLOATING TAGLINE & SEARCH CARD */}
+        <div className="max-w-md mx-auto px-4 -mt-10 relative z-10 pb-6 text-center">
+          <div className="bg-emerald-900/95 backdrop-blur-md border border-emerald-800 rounded-2xl p-4 shadow-lg space-y-3">
+            <p className="text-xs text-emerald-100 leading-relaxed font-medium">
+              Find verified shops, markets, and service providers directly in your village. Contact traders directly on WhatsApp!
+            </p>
+
+            {/* GLOBAL SEARCH FORM */}
+            <form action="/search" method="GET" className="relative">
+              <input
+                type="text"
+                name="q"
+                placeholder="Search rice, beer, garri, mechanics in your community..."
+                className="w-full bg-white text-slate-800 rounded-xl pl-9 pr-4 py-3 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm"
+              />
+              <span className="absolute left-3 top-3.5 text-slate-400 text-xs">🔍</span>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <main className="max-w-md mx-auto px-4 pt-4 space-y-6">
+        {/* EXPLORE COMMUNITIES & TOWNS */}
         <section className="space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Explore Towns</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              href="/directory/imo/ekwe"
-              className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-400 transition"
-            >
-              <span className="text-xl">📍</span>
-              <h3 className="text-sm font-bold text-slate-900 mt-1">Ekwe Directory</h3>
-              <p className="text-[11px] text-slate-500">Isu LGA, Imo State</p>
-            </Link>
+          <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+            EXPLORE COMMUNITIES & TOWNS
+          </h2>
 
-            <Link
-              href="/directory/imo/owerri"
-              className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-400 transition"
-            >
-              <span className="text-xl">🏙️</span>
-              <h3 className="text-sm font-bold text-slate-900 mt-1">Owerri Directory</h3>
-              <p className="text-[11px] text-slate-500">Municipal, Imo State</p>
-            </Link>
+          <div className="grid grid-cols-2 gap-3">
+            {towns.length > 0 ? (
+              towns.map((town) => (
+                <Link
+                  key={town.id}
+                  href={`/directory/${town.state.toLowerCase()}/${town.slug}`}
+                  className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs hover:border-emerald-500 transition active:scale-95 flex flex-col justify-between"
+                >
+                  <span className="text-xl mb-2">📍</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">{town.name} Directory</h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {town.lga} LGA, {town.state}
+                    </p>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-2 bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">
+                Loading communities...
+              </div>
+            )}
           </div>
         </section>
 
-        {/* PORTAL ACCESS CARDS */}
+        {/* PORTALS & TOOLS */}
         <section className="space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">Portals & Tools</h2>
+          <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+            PORTALS & TOOLS
+          </h2>
 
           <div className="space-y-2.5">
             <Link
               href="/agent/onboard"
-              className="flex items-center justify-between bg-emerald-700 text-white p-4 rounded-2xl shadow-sm hover:bg-emerald-800 transition"
+              className="block bg-emerald-800 text-white rounded-2xl p-4 shadow-xs hover:bg-emerald-700 transition active:scale-[0.99]"
             >
-              <div>
-                <h3 className="text-xs font-bold">📲 Agent Field Onboarding Portal</h3>
-                <p className="text-[11px] text-emerald-100">Register traders & collect ₦1,000 cash</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <span>📲</span> Agent Field Onboarding Portal
+                  </h3>
+                  <p className="text-[11px] text-emerald-200 mt-0.5">
+                    Register traders & collect ₦1,000 cash
+                  </p>
+                </div>
+                <span className="text-sm">→</span>
               </div>
-              <span className="text-sm font-bold">→</span>
             </Link>
 
             <Link
               href="/agent/dashboard"
-              className="flex items-center justify-between bg-slate-900 text-white p-4 rounded-2xl shadow-sm hover:bg-slate-800 transition"
+              className="block bg-slate-900 text-white rounded-2xl p-4 shadow-xs hover:bg-slate-800 transition active:scale-[0.99]"
             >
-              <div>
-                <h3 className="text-xs font-bold">💼 Agent Earnings Dashboard</h3>
-                <p className="text-[11px] text-slate-300">Track total commissions (50% split) & wallet</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <span>💼</span> Agent Earnings Dashboard
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Track total commissions (50% split) & wallet
+                  </p>
+                </div>
+                <span className="text-sm">→</span>
               </div>
-              <span className="text-sm font-bold">→</span>
             </Link>
 
             <Link
               href="/manage"
-              className="flex items-center justify-between bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs hover:border-emerald-300 transition"
+              className="block bg-white border border-slate-200/90 text-slate-800 rounded-2xl p-4 shadow-xs hover:border-emerald-400 transition active:scale-[0.99]"
             >
-              <div>
-                <h3 className="text-xs font-bold text-slate-900">🔑 Shop Owner Web Portal</h3>
-                <p className="text-[11px] text-slate-500">Edit shop profile & inventory with 4-digit PIN</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>🔑</span> Shop Owner Web Portal
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Edit shop profile & inventory with 4-digit PIN
+                  </p>
+                </div>
+                <span className="text-slate-400 text-sm">→</span>
               </div>
-              <span className="text-sm font-bold text-slate-400">→</span>
             </Link>
 
             <Link
               href="/admin/businesses"
-              className="flex items-center justify-between bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs hover:border-emerald-300 transition"
+              className="block bg-white border border-slate-200/90 text-slate-800 rounded-2xl p-4 shadow-xs hover:border-emerald-400 transition active:scale-[0.99]"
             >
-              <div>
-                <h3 className="text-xs font-bold text-slate-900">🛡️ Admin Moderation Portal</h3>
-                <p className="text-[11px] text-slate-500">Approve, verify, feature, or suspend shops</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>🛡️</span> Admin Moderation Portal
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Approve, verify, feature, or suspend shops
+                  </p>
+                </div>
+                <span className="text-slate-400 text-sm">→</span>
               </div>
-              <span className="text-sm font-bold text-slate-400">→</span>
             </Link>
           </div>
         </section>
