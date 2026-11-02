@@ -41,6 +41,22 @@ export default function AgentOnboardTrader() {
     }
   };
 
+const captureLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData({
+          ...formData,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        alert('GPS Location Captured!');
+      },
+      (error) => alert('Unable to retrieve location. Please check browser permissions.')
+    );
+  }
+};
+
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 p-4 max-w-md mx-auto font-sans">
       <header className="bg-emerald-700 text-white p-4 rounded-xl mb-4">
