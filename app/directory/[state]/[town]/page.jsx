@@ -1,8 +1,6 @@
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
 import { query } from '@/lib/db';
-import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import AdSenseBanner from '@/components/AdSenseBanner';
@@ -10,7 +8,7 @@ import AdSenseBanner from '@/components/AdSenseBanner';
 // Fetch town details and active local businesses safely
 async function getDirectoryData(stateParam, townParam) {
   try {
-    // 1. Fetch target town details (using TRIM to ignore hidden spaces in DB or URL)
+    // 1. Fetch target town details (TRIM handles any whitespace differences)
     const townSql = `
       SELECT id, state, lga, name, slug 
       FROM towns 
@@ -28,7 +26,7 @@ async function getDirectoryData(stateParam, townParam) {
 
     const town = townRes.rows[0];
 
-    // 2. Fetch all businesses registered under this town
+    // 2. Fetch all active businesses registered under this town
     const bizSql = `
       SELECT 
         b.id,
@@ -52,7 +50,7 @@ async function getDirectoryData(stateParam, townParam) {
 
     const bizRes = await query(bizSql, [town.id]);
 
-    // 3. Fetch active product categories for filtering
+    // 3. Fetch active product categories
     const categoriesRes = await query('SELECT name FROM categories ORDER BY name ASC');
 
     return {
@@ -66,7 +64,6 @@ async function getDirectoryData(stateParam, townParam) {
   }
 }
 
-// Fixed metadata generator to prevent triggering unintended 404s
 export async function generateMetadata({ params }) {
   const { state, town } = await params;
   const capitalizedTown = town ? town.charAt(0).toUpperCase() + town.slice(1) : 'Local';
@@ -82,7 +79,6 @@ export default async function RegionalDirectoryPage({ params }) {
   const { state, town: townParam } = await params;
   const data = await getDirectoryData(state, townParam);
 
-  // If town isn't found in DB, return a friendly fallback state instead of calling notFound()
   if (!data) {
     return (
       <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16 flex flex-col items-center justify-center p-4">
@@ -125,7 +121,7 @@ export default async function RegionalDirectoryPage({ params }) {
       </header>
 
       <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        {/* SEARCH BAR REDIRECT */}
+        {/* SEARCH BAR */}
         <form action="/search" method="GET" className="relative">
           <input type="hidden" name="town" value={town.slug} />
           <input
@@ -137,7 +133,7 @@ export default async function RegionalDirectoryPage({ params }) {
           <span className="absolute left-3.5 top-3.5 text-slate-400 text-xs">🔍</span>
         </form>
 
-        {/* CATEGORY QUICK FILTERS */}
+        {/* CATEGORY FILTERS */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <span className="bg-slate-900 text-white text-[11px] font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shadow-xs">
             All Listings ({businesses.length})
@@ -152,7 +148,7 @@ export default async function RegionalDirectoryPage({ params }) {
           ))}
         </div>
 
-        {/* BUSINESS LISTINGS STACK WITH INTERSPERSED ADS */}
+        {/* BUSINESS LISTINGS STACK WITH ADS */}
         <div className="space-y-3">
           {businesses.length > 0 ? (
             businesses.map((biz, index) => (
@@ -198,7 +194,6 @@ export default async function RegionalDirectoryPage({ params }) {
                   </div>
                 </Link>
 
-                {/* Render AdSense Display Banner after every 3rd business card */}
                 {(index + 1) % 3 === 0 && (
                   <AdSenseBanner slot="DIR_INLINE_DISPLAY_SLOT" />
                 )}
