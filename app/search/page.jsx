@@ -23,7 +23,7 @@ async function getFilterOptions() {
 }
 
 // =========================================================================
-// 🔹 UNIFIED SEARCH BACKEND (ENUM CAST FIX INCLUDED)
+// 🔹 UNIFIED SEARCH BACKEND (FIXED PRODUCT COLUMN QUERY)
 // =========================================================================
 async function getUnifiedSearchResults(params) {
   const { q, town: townSlug, category, lat, lng, radius } = params;
@@ -82,14 +82,13 @@ async function getUnifiedSearchResults(params) {
         idx += 2;
       }
 
-      // FIX: Cast ENUM status to text or compare directly to 'active'
       bizSql += `
         FROM public.businesses b
         JOIN public.towns t ON b.town_id = t.id
         WHERE b.status::text = 'active'
       `;
 
-      // Search keyword across business name, address, OR any linked product name/description
+      // Search keyword across business name, address, OR linked product names
       if (q && q.trim()) {
         bizSql += ` AND (
           b.name ILIKE $${idx} 
@@ -97,7 +96,7 @@ async function getUnifiedSearchResults(params) {
           OR EXISTS (
             SELECT 1 FROM public.products p_search 
             WHERE p_search.business_id = b.id 
-            AND (p_search.name ILIKE $${idx} OR p_search.description ILIKE $${idx})
+            AND p_search.name ILIKE $${idx}
           )
         )`;
         bizParams.push(`%${q.trim()}%`);
@@ -144,12 +143,12 @@ async function getUnifiedSearchResults(params) {
       return { bizSql, bizParams };
     };
 
-    // 1. First search restricted to selected town
+    // 1. Search in selected town
     let { bizSql, bizParams } = buildQuery(true);
     let bizRes = await query(bizSql, bizParams);
     let isFallbackSearch = false;
 
-    // 2. Smart Fallback: Search all communities if zero matches found in selected town
+    // 2. Fallback: Search all communities if 0 matches found in selected town
     if ((!bizRes || bizRes.rows.length === 0) && selectedTown && q && q.trim()) {
       const fallback = buildQuery(false);
       bizRes = await query(fallback.bizSql, fallback.bizParams);
@@ -158,7 +157,7 @@ async function getUnifiedSearchResults(params) {
       }
     }
 
-    // Telemetry update for popular searches
+    // Telemetry update for trending searches
     if (q && q.trim()) {
       query(
         `UPDATE public.products SET search_count = COALESCE(search_count, 0) + 1 WHERE LOWER(name) ILIKE $1`,
@@ -191,7 +190,7 @@ async function getUnifiedSearchResults(params) {
     eventSql += ` ORDER BY e.event_date ASC;`;
     const eventRes = await query(eventSql, eventParams);
 
-    // Query Viral Trending Products (Fixed ENUM Status Cast)
+    // Query Viral Trending Products
     const recSql = `
       SELECT p.name, p.price, b.name as shop_name, b.slug as shop_slug, b.whatsapp_number
       FROM public.products p
