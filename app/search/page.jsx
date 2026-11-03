@@ -23,7 +23,7 @@ async function getFilterOptions() {
 }
 
 // =========================================================================
-// 🔹 UNIFIED SEARCH BACKEND WITH SMART COMMUNITY FALLBACK
+// 🔹 UNIFIED SEARCH BACKEND (ROBUST PRODUCT & SHOP SEARCH)
 // =========================================================================
 async function getUnifiedSearchResults(params) {
   const { q, town: townSlug, category, lat, lng, radius } = params;
@@ -43,7 +43,6 @@ async function getUnifiedSearchResults(params) {
     const parsedRadius = radius ? parseFloat(radius) : 5;
     const hasGps = !isNaN(parsedLat) && !isNaN(parsedLng) && parsedLat !== null && parsedLng !== null;
 
-    // Dynamic SQL Builder
     const buildQuery = (filterByTown) => {
       let bizSql = `
         SELECT 
@@ -58,7 +57,14 @@ async function getUnifiedSearchResults(params) {
           b.is_featured,
           b.created_at,
           t.name as town_name,
-          ARRAY_REMOVE(ARRAY_AGG(DISTINCT p.name), NULL) as products_sample
+          COALESCE(
+            (
+              SELECT json_agg(p_sub.name)
+              FROM public.products p_sub
+              WHERE p_sub.business_id = b.id
+            ),
+            '[]'::json
+          ) as products_sample
       `;
 
       const bizParams = [];
@@ -79,29 +85,43 @@ async function getUnifiedSearchResults(params) {
       bizSql += `
         FROM public.businesses b
         JOIN public.towns t ON b.town_id = t.id
-        LEFT JOIN public.products p ON b.id = p.business_id
-        LEFT JOIN public.categories c ON p.category_id = c.id
         WHERE LOWER(b.status) = 'active'
       `;
 
+      // Search keyword across business name, address, OR any linked product name/description
       if (q && q.trim()) {
-        bizSql += ` AND (b.name ILIKE $${idx} OR b.address ILIKE $${idx} OR p.name ILIKE $${idx} OR p.description ILIKE $${idx})`;
+        bizSql += ` AND (
+          b.name ILIKE $${idx} 
+          OR b.address ILIKE $${idx} 
+          OR EXISTS (
+            SELECT 1 FROM public.products p_search 
+            WHERE p_search.business_id = b.id 
+            AND (p_search.name ILIKE $${idx} OR p_search.description ILIKE $${idx})
+          )
+        )`;
         bizParams.push(`%${q.trim()}%`);
         idx++;
       }
 
+      // Filter by selected Town/Community
       if (filterByTown && selectedTown) {
         bizSql += ` AND b.town_id = $${idx}`;
         bizParams.push(selectedTown.id);
         idx++;
       }
 
+      // Filter by Product Category
       if (category && category.trim()) {
-        bizSql += ` AND LOWER(c.name) = LOWER($${idx})`;
+        bizSql += ` AND EXISTS (
+          SELECT 1 FROM public.products p_cat
+          JOIN public.categories c_cat ON p_cat.category_id = c_cat.id
+          WHERE p_cat.business_id = b.id AND LOWER(c_cat.name) = LOWER($${idx})
+        )`;
         bizParams.push(category.trim());
         idx++;
       }
 
+      // Filter by GPS Radius
       if (hasGps && parsedRadius) {
         const latIdx = 1;
         const lngIdx = 2;
@@ -114,12 +134,6 @@ async function getUnifiedSearchResults(params) {
         idx++;
       }
 
-      bizSql += ` 
-        GROUP BY 
-          b.id, b.name, b.slug, b.address, b.phone, b.whatsapp_number, 
-          b.image_url, b.is_verified, b.is_featured, b.created_at, t.name 
-      `;
-
       if (hasGps) {
         bizSql += ` ORDER BY distance_km ASC, b.is_featured DESC;`;
       } else {
@@ -129,12 +143,12 @@ async function getUnifiedSearchResults(params) {
       return { bizSql, bizParams };
     };
 
-    // 1. First execution restricted to selected town
+    // 1. Try search in chosen town
     let { bizSql, bizParams } = buildQuery(true);
     let bizRes = await query(bizSql, bizParams);
     let isFallbackSearch = false;
 
-    // 2. SMART FALLBACK: If 0 results match in selected town, search ALL communities!
+    // 2. Fallback: If 0 results in chosen town, search all towns automatically
     if ((!bizRes || bizRes.rows.length === 0) && selectedTown && q && q.trim()) {
       const fallback = buildQuery(false);
       bizRes = await query(fallback.bizSql, fallback.bizParams);
@@ -143,7 +157,7 @@ async function getUnifiedSearchResults(params) {
       }
     }
 
-    // Telemetry counter update for trending recommendations
+    // Background telemetry update for trending recommendations
     if (q && q.trim()) {
       query(
         `UPDATE public.products SET search_count = COALESCE(search_count, 0) + 1 WHERE LOWER(name) ILIKE $1`,
@@ -151,7 +165,7 @@ async function getUnifiedSearchResults(params) {
       ).catch(() => {});
     }
 
-    // Query Upcoming Community Events
+    // Query Events
     let eventSql = `
       SELECT e.id, e.title, e.organizer, e.event_date, e.time_label, e.venue, e.description, e.whatsapp_contact, t.name as town_name
       FROM public.events e
@@ -351,14 +365,15 @@ export default async function SearchPage(props) {
                           📍 {biz.address} ({biz.town_name})
                         </p>
                         <div className="flex flex-wrap gap-1 mt-1.5">
-                          {biz.products_sample?.slice(0, 3).map((item, idx) => (
-                            <span
-                              key={idx}
-                              className="bg-slate-100 text-slate-700 text-[9px] font-medium px-2 py-0.5 rounded-md"
-                            >
-                              {item}
-                            </span>
-                          ))}
+                          {Array.isArray(biz.products_sample) &&
+                            biz.products_sample.slice(0, 3).map((item, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-slate-100 text-slate-700 text-[9px] font-medium px-2 py-0.5 rounded-md"
+                              >
+                                {item}
+                              </span>
+                            ))}
                         </div>
                       </div>
 
