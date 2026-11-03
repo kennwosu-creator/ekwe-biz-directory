@@ -23,7 +23,7 @@ async function getFilterOptions() {
 }
 
 // =========================================================================
-// 🔹 UNIFIED SEARCH BACKEND (ROBUST PRODUCT & SHOP SEARCH)
+// 🔹 UNIFIED SEARCH BACKEND (ENUM CAST FIX INCLUDED)
 // =========================================================================
 async function getUnifiedSearchResults(params) {
   const { q, town: townSlug, category, lat, lng, radius } = params;
@@ -82,10 +82,11 @@ async function getUnifiedSearchResults(params) {
         idx += 2;
       }
 
+      // FIX: Cast ENUM status to text or compare directly to 'active'
       bizSql += `
         FROM public.businesses b
         JOIN public.towns t ON b.town_id = t.id
-        WHERE LOWER(b.status) = 'active'
+        WHERE b.status::text = 'active'
       `;
 
       // Search keyword across business name, address, OR any linked product name/description
@@ -143,12 +144,12 @@ async function getUnifiedSearchResults(params) {
       return { bizSql, bizParams };
     };
 
-    // 1. Try search in chosen town
+    // 1. First search restricted to selected town
     let { bizSql, bizParams } = buildQuery(true);
     let bizRes = await query(bizSql, bizParams);
     let isFallbackSearch = false;
 
-    // 2. Fallback: If 0 results in chosen town, search all towns automatically
+    // 2. Smart Fallback: Search all communities if zero matches found in selected town
     if ((!bizRes || bizRes.rows.length === 0) && selectedTown && q && q.trim()) {
       const fallback = buildQuery(false);
       bizRes = await query(fallback.bizSql, fallback.bizParams);
@@ -157,7 +158,7 @@ async function getUnifiedSearchResults(params) {
       }
     }
 
-    // Background telemetry update for trending recommendations
+    // Telemetry update for popular searches
     if (q && q.trim()) {
       query(
         `UPDATE public.products SET search_count = COALESCE(search_count, 0) + 1 WHERE LOWER(name) ILIKE $1`,
@@ -165,7 +166,7 @@ async function getUnifiedSearchResults(params) {
       ).catch(() => {});
     }
 
-    // Query Events
+    // Query Upcoming Community Events
     let eventSql = `
       SELECT e.id, e.title, e.organizer, e.event_date, e.time_label, e.venue, e.description, e.whatsapp_contact, t.name as town_name
       FROM public.events e
@@ -190,12 +191,12 @@ async function getUnifiedSearchResults(params) {
     eventSql += ` ORDER BY e.event_date ASC;`;
     const eventRes = await query(eventSql, eventParams);
 
-    // Query Viral Trending Products
+    // Query Viral Trending Products (Fixed ENUM Status Cast)
     const recSql = `
       SELECT p.name, p.price, b.name as shop_name, b.slug as shop_slug, b.whatsapp_number
       FROM public.products p
       JOIN public.businesses b ON p.business_id = b.id
-      WHERE LOWER(b.status) = 'active'
+      WHERE b.status::text = 'active'
       ORDER BY COALESCE(p.search_count, 0) DESC, p.created_at DESC
       LIMIT 4;
     `;

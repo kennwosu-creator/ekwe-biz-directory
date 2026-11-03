@@ -1,6 +1,12 @@
 import './globals.css';
 import InstallPrompt from '@/components/InstallPrompt';
 
+// Next.js 14/15 Viewport export for theme and screen configuration
+export const viewport = {
+  themeColor: '#064e3b',
+};
+
+// Next.js Metadata export for SEO and OpenGraph properties
 export const metadata = {
   title: {
     default: 'CommunityShops - Local Village & Market Directory across Nigeria',
@@ -17,7 +23,6 @@ export const metadata = {
     'Nigeria Rural Commerce',
   ],
   manifest: '/manifest.json',
-  themeColor: '#064e3b',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
