@@ -4,7 +4,9 @@ import { query } from '@/lib/db';
 import Link from 'next/link';
 import AdvancedSearch from '@/components/AdvancedSearch';
 import SafeImage from '@/components/SafeImage';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
+// Helper function to fetch dropdown options for towns & categories
 async function getFilterOptions() {
   try {
     const townsRes = await query(
@@ -13,139 +15,123 @@ async function getFilterOptions() {
     const categoriesRes = await query(
       'SELECT id, name FROM public.categories ORDER BY name ASC'
     );
-
-    return {
-      towns: townsRes.rows || [],
-      categories: categoriesRes.rows || [],
-    };
+    return { towns: townsRes?.rows || [], categories: categoriesRes?.rows || [] };
   } catch (error) {
-    console.error('Error fetching search filter options:', error);
     return { towns: [], categories: [] };
   }
 }
 
-async function getSearchResults(params) {
+// =========================================================================
+// 🔹 PART 2: UNIFIED SEARCH BACKEND (Data Fetching Function)
+// =========================================================================
+async function getUnifiedSearchResults(params) {
   const { q, town: townSlug, category, lat, lng, radius } = params;
-
-  // Don't query if no search filters or keywords are provided
-  if (!q && !townSlug && !category && (!lat || !lng)) {
-    return { businesses: [], selectedTown: null };
-  }
 
   try {
     let selectedTown = null;
-    if (townSlug) {
+    if (townSlug && townSlug.trim()) {
       const townRes = await query(
         'SELECT id, name, slug, state, lga FROM public.towns WHERE TRIM(LOWER(slug)) = TRIM(LOWER($1)) LIMIT 1',
-        [townSlug]
+        [townSlug.trim()]
       );
-      selectedTown = townRes.rows[0] || null;
+      selectedTown = townRes?.rows?.[0] || null;
     }
 
-    let sql = `
+    // 1. Query Businesses & Products
+    let bizSql = `
       SELECT 
-        b.id,
-        b.name,
-        b.slug,
-        b.address,
-        b.phone,
-        b.whatsapp_number,
-        b.image_url,
-        b.is_verified,
-        b.latitude,
-        b.longitude,
-        t.name as town_name
-    `;
-
-    const queryParams = [];
-    let paramIdx = 1;
-
-    // 1. Calculate distance in KM using Haversine formula if GPS coordinates are present
-    const hasGps = lat && lng;
-    if (hasGps) {
-      sql += `,
-        (6371 * acos(
-          cos(radians($${paramIdx})) * cos(radians(b.latitude)) * 
-          cos(radians(b.longitude) - radians($${paramIdx + 1})) + 
-          sin(radians($${paramIdx})) * sin(radians(b.latitude))
-        )) AS distance_km
-      `;
-      queryParams.push(parseFloat(lat), parseFloat(lng));
-      paramIdx += 2;
-    }
-
-    sql += `
+        b.id, b.name, b.slug, b.address, b.phone, b.whatsapp_number, b.image_url, b.is_verified,
+        t.name as town_name,
+        COALESCE(json_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '[]') as products_sample
       FROM public.businesses b
       JOIN public.towns t ON b.town_id = t.id
       LEFT JOIN public.products p ON b.id = p.business_id
       LEFT JOIN public.categories c ON p.category_id = c.id
       WHERE b.status = 'active'
     `;
+    const bizParams = [];
+    let idx = 1;
 
-    // 2. Filter by Search Query Keyword
-    if (q) {
-      sql += ` AND (b.name ILIKE $${paramIdx} OR b.address ILIKE $${paramIdx} OR p.name ILIKE $${paramIdx})`;
-      queryParams.push(`%${q}%`);
-      paramIdx++;
+    if (q && q.trim()) {
+      bizSql += ` AND (b.name ILIKE $${idx} OR b.address ILIKE $${idx} OR p.name ILIKE $${idx})`;
+      bizParams.push(`%${q.trim()}%`);
+      idx++;
+
+      // Update viral search telemetry counter
+      query(
+        `UPDATE public.products SET search_count = search_count + 1 WHERE LOWER(name) ILIKE $1`,
+        [`%${q.trim().toLowerCase()}%`]
+      ).catch(() => {});
     }
 
-    // 3. Filter by Specific Town
     if (selectedTown) {
-      sql += ` AND b.town_id = $${paramIdx}`;
-      queryParams.push(selectedTown.id);
-      paramIdx++;
+      bizSql += ` AND b.town_id = $${idx}`;
+      bizParams.push(selectedTown.id);
+      idx++;
     }
 
-    // 4. Filter by Category Name
-    if (category) {
-      sql += ` AND LOWER(c.name) = LOWER($${paramIdx})`;
-      queryParams.push(category);
-      paramIdx++;
+    bizSql += ` GROUP BY b.id, t.name ORDER BY b.is_featured DESC, b.created_at DESC;`;
+    const bizRes = await query(bizSql, bizParams);
+
+    // 2. Query Community Events
+    let eventSql = `
+      SELECT e.id, e.title, e.organizer, e.event_date, e.time_label, e.venue, e.description, e.whatsapp_contact, t.name as town_name
+      FROM public.events e
+      JOIN public.towns t ON e.town_id = t.id
+      WHERE e.event_date >= CURRENT_DATE
+    `;
+    const eventParams = [];
+    let eIdx = 1;
+
+    if (q && q.trim()) {
+      eventSql += ` AND (e.title ILIKE $${eIdx} OR e.venue ILIKE $${eIdx} OR e.description ILIKE $${eIdx})`;
+      eventParams.push(`%${q.trim()}%`);
+      eIdx++;
     }
 
-    // 5. Filter by Radius KM Distance
-    if (hasGps && radius) {
-      const latIdx = 1;
-      const lngIdx = 2;
-      sql += ` AND (6371 * acos(
-        cos(radians($${latIdx})) * cos(radians(b.latitude)) * 
-        cos(radians(b.longitude) - radians($${lngIdx})) + 
-        sin(radians($${latIdx})) * sin(radians(b.latitude))
-      )) <= $${paramIdx}`;
-      queryParams.push(parseFloat(radius));
-      paramIdx++;
+    if (selectedTown) {
+      eventSql += ` AND e.town_id = $${eIdx}`;
+      eventParams.push(selectedTown.id);
+      eIdx++;
     }
 
-    sql += ` GROUP BY b.id, t.name `;
+    eventSql += ` ORDER BY e.event_date ASC;`;
+    const eventRes = await query(eventSql, eventParams);
 
-    if (hasGps) {
-      sql += ` ORDER BY distance_km ASC, b.is_featured DESC `;
-    } else {
-      sql += ` ORDER BY b.is_featured DESC, b.created_at DESC `;
-    }
+    // 3. Query Viral Trending Products
+    const recSql = `
+      SELECT p.name, p.price, b.name as shop_name, b.slug as shop_slug, b.whatsapp_number
+      FROM public.products p
+      JOIN public.businesses b ON p.business_id = b.id
+      WHERE b.status = 'active'
+      ORDER BY p.search_count DESC, p.created_at DESC
+      LIMIT 4;
+    `;
+    const recRes = await query(recSql, []);
 
-    const res = await query(sql, queryParams);
-    return { businesses: res.rows || [], selectedTown };
+    return {
+      businesses: bizRes?.rows || [],
+      events: eventRes?.rows || [],
+      recommendations: recRes?.rows || [],
+      selectedTown,
+    };
   } catch (error) {
-    console.error('Error executing search query:', error);
-    return { businesses: [], selectedTown: null };
+    console.error('[Unified Search Error]:', error);
+    return { businesses: [], events: [], recommendations: [], selectedTown: null };
   }
 }
 
-export async function generateMetadata({ params }) {
-  const resolvedParams = await params;
-  const state = resolvedParams?.state || '';
-  const town = resolvedParams?.town || '';
-
-  const capitalizedTown = town ? town.charAt(0).toUpperCase() + town.slice(1) : 'Local';
-  const capitalizedState = state ? state.charAt(0).toUpperCase() + state.slice(1) : '';
-
+export async function generateMetadata(props) {
+  const searchParams = await props.searchParams;
+  const q = searchParams?.q || '';
   return {
-    title: `${capitalizedTown} Community Directory - Verified Local Shops & Services | CommunityShops`,
-    description: `Find local village shops, merchants, and goods in ${capitalizedTown}, ${capitalizedState} State on CommunityShops.`,
+    title: q ? `Search "${q}" | CommunityShops` : 'Search Shops & Events | CommunityShops',
   };
 }
 
+// =========================================================================
+// 🔹 PART 3: UI REPLACEMENT CODE (React Component that calls Part 2)
+// =========================================================================
 export default async function SearchPage(props) {
   const searchParams = await props.searchParams;
 
@@ -158,9 +144,10 @@ export default async function SearchPage(props) {
     radius: searchParams?.radius || '5',
   };
 
-  const [{ towns, categories }, { businesses, selectedTown }] = await Promise.all([
+  // 🔗 Here is where Part 3 connects to Part 2!
+  const [{ towns, categories }, { businesses, events, recommendations, selectedTown }] = await Promise.all([
     getFilterOptions(),
-    getSearchResults(initialParams),
+    getUnifiedSearchResults(initialParams), // <--- Calling Part 2 function here
   ]);
 
   const hasSearched = Boolean(
@@ -176,125 +163,169 @@ export default async function SearchPage(props) {
           <span>Home</span>
         </Link>
         <span className="text-xs font-semibold text-slate-500 truncate max-w-[200px]">
-          {selectedTown ? `Searching in ${selectedTown.name}` : 'Advanced Search'}
+          {selectedTown ? `Searching in ${selectedTown.name}` : 'Search CommunityShops'}
         </span>
       </header>
 
-      <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        {/* ADVANCED FILTER FORM COMPONENT */}
-        <AdvancedSearch
-          towns={towns}
-          categories={categories}
-          initialParams={initialParams}
-        />
+      <main className="max-w-md mx-auto px-4 pt-4 space-y-6">
+        {/* ADVANCED FILTER DRAWER COMPONENT */}
+        <AdvancedSearch towns={towns} categories={categories} initialParams={initialParams} />
 
-        {/* RESULTS SUMMARY */}
-        <div className="text-xs text-slate-500 px-1">
-          {hasSearched ? (
-            <p>
-              Found <strong className="text-slate-900">{businesses.length}</strong> matching shop(s)
-              {initialParams.q && <span> for &quot;{initialParams.q}&quot;</span>}
-              {selectedTown && <span> in {selectedTown.name}</span>}
-              {initialParams.lat && initialParams.lng && (
-                <span> (within {initialParams.radius} KM)</span>
-              )}
-            </p>
-          ) : (
-            <p>Use the search bar and filter drawers above to find verified local products or nearby services.</p>
-          )}
-        </div>
+        {/* 1. UPCOMING EVENTS SECTION */}
+        {events.length > 0 && (
+          <section className="space-y-3">
+            <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase flex items-center gap-1.5">
+              <span>🎉</span> UPCOMING EVENTS & GATHERINGS ({events.length})
+            </h2>
 
-        {/* TOUCH-OPTIMIZED RESULTS LIST */}
-        <div className="space-y-3">
-          {businesses.length > 0 ? (
-            businesses.map((biz) => (
-              <Link
-                key={biz.id}
-                href={`/biz/${biz.slug}`}
-                className="block bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs hover:border-emerald-300 active:bg-slate-50 active:scale-[0.98] transition-all duration-150"
-              >
-                <div className="flex gap-3">
-                  {/* Zero-CLS Safe Image with Skeleton Pulse */}
-                  <SafeImage
-                    src={biz.image_url}
-                    alt={biz.name}
-                    className="h-20 w-20 rounded-xl shrink-0 border border-slate-100"
-                    fill
-                  />
+            <div className="space-y-2.5">
+              {events.map((evt) => (
+                <div
+                  key={evt.id}
+                  className="bg-emerald-900 text-white rounded-2xl p-4 shadow-xs space-y-2.5 border border-emerald-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <span className="bg-emerald-700 text-emerald-100 text-[10px] font-extrabold px-2.5 py-1 rounded-lg">
+                      {new Date(evt.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    <span className="text-[10px] text-emerald-300 font-medium">{evt.town_name} Community</span>
+                  </div>
 
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1 truncate">
-                          <h2 className="text-xs font-bold text-slate-900 truncate">{biz.name}</h2>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">{evt.title}</h3>
+                    <p className="text-[11px] text-emerald-200 mt-0.5">
+                      📍 {evt.venue} {evt.time_label ? `(${evt.time_label})` : ''}
+                    </p>
+                    {evt.organizer && (
+                      <p className="text-[10px] text-emerald-300/80 mt-1">Organized by {evt.organizer}</p>
+                    )}
+                  </div>
+
+                  {evt.whatsapp_contact && (
+                    <div className="pt-2 border-t border-emerald-800/80 flex justify-end">
+                      <a
+                        href={`https://wa.me/${evt.whatsapp_contact}?text=${encodeURIComponent(
+                          `Hello, I am inquiring about the ${evt.title} listed on CommunityShops.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-extrabold text-[10px] px-3 py-1.5 rounded-lg transition"
+                      >
+                        <span>💬 Contact Organizer</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 2. MATCHING SHOPS LIST */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase flex items-center justify-between">
+            <span>🏪 LOCAL SHOPS ({businesses.length})</span>
+          </h2>
+
+          <div className="space-y-3">
+            {businesses.length > 0 ? (
+              businesses.map((biz) => (
+                <Link
+                  key={biz.id}
+                  href={`/biz/${biz.slug}`}
+                  className="block bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs hover:border-emerald-300 active:bg-slate-50 active:scale-[0.98] transition-all duration-150"
+                >
+                  <div className="flex gap-3">
+                    <SafeImage
+                      src={biz.image_url}
+                      alt={biz.name}
+                      className="h-20 w-20 rounded-xl shrink-0 border border-slate-100"
+                      fill
+                    />
+
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="text-xs font-bold text-slate-900 truncate">{biz.name}</h3>
                           {biz.is_verified && (
-                            <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded-full shrink-0" title="Verified Shop">
+                            <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded-full shrink-0">
                               ✓
                             </span>
                           )}
                         </div>
-
-                        {/* Distance Badge if GPS distance was calculated */}
-                        {biz.distance_km !== undefined && (
-                          <span className="bg-emerald-50 text-emerald-700 font-semibold text-[10px] px-2 py-0.5 rounded-full shrink-0 border border-emerald-200/60">
-                            {parseFloat(biz.distance_km).toFixed(1)} km
-                          </span>
-                        )}
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          📍 {biz.address} ({biz.town_name})
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {biz.products_sample?.slice(0, 3).map((item, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-slate-100 text-slate-700 text-[9px] font-medium px-2 py-0.5 rounded-md"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
                       </div>
 
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        📍 {biz.address} ({biz.town_name})
-                      </p>
-
-                      {/* Sample Goods Tags */}
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {biz.products_sample?.slice(0, 3).map((item, idx) => (
-                          <span
-                            key={idx}
-                            className="bg-slate-100 text-slate-700 text-[9px] font-medium px-2 py-0.5 rounded-md"
-                          >
-                            {item}
-                          </span>
-                        ))}
-                      </div>
+                      <WhatsAppButton whatsappNumber={biz.whatsapp_number} businessName={biz.name} />
                     </div>
-
-                    {/* QUICK TOUCH ACTION: DIRECT WHATSAPP CHAT BUTTON */}
-                    {biz.whatsapp_number && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-medium">Verified Merchant</span>
-                        <span
-                          onClick={(e) => {
-                            e.preventDefault();
-                            window.open(
-                              `https://wa.me/${biz.whatsapp_number}?text=${encodeURIComponent(
-                                `Hello ${biz.name}, I found your shop on Ekwe Business Directory.`
-                              )}`,
-                              '_blank'
-                            );
-                          }}
-                          className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-[10px] px-2.5 py-1.5 rounded-lg border border-emerald-200/60 transition active:scale-95"
-                        >
-                          <span>💬 Chat on WhatsApp</span>
-                        </span>
-                      </div>
-                    )}
                   </div>
+                </Link>
+              ))
+            ) : (
+              hasSearched && (
+                <div className="bg-white rounded-2xl p-6 text-center space-y-2 border border-slate-200/80 shadow-xs">
+                  <span className="text-3xl">🔍</span>
+                  <h3 className="text-xs font-bold text-slate-800">No matching shops found</h3>
+                  <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                    Try broadening your search keywords or selecting &quot;All Communities & Towns&quot;.
+                  </p>
                 </div>
-              </Link>
-            ))
-          ) : (
-            hasSearched && (
-              <div className="bg-white rounded-2xl p-8 text-center space-y-2 border border-slate-200/80 shadow-xs">
-                <span className="text-3xl">🔍</span>
-                <h3 className="text-xs font-bold text-slate-800">No shops found</h3>
-                <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                  Try broadening your search keywords, adjusting the distance slider, or selecting &quot;All Towns&quot;.
-                </p>
-              </div>
-            )
-          )}
-        </div>
+              )
+            )}
+          </div>
+        </section>
+
+        {/* 3. VIRAL TRENDING PRODUCT RECOMMENDATIONS */}
+        {recommendations.length > 0 && (
+          <section className="space-y-3 pt-2">
+            <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase flex items-center gap-1.5">
+              <span>🔥</span> POPULAR IN DEMAND ACROSS COMMUNITIES
+            </h2>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {recommendations.map((rec, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-xl border border-slate-200/90 p-3 shadow-2xs space-y-2 flex flex-col justify-between"
+                >
+                  <div>
+                    <span className="bg-amber-50 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded-md">
+                      Trending Item
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1 line-clamp-1">{rec.name}</h4>
+                    <p className="text-[10px] text-slate-500 truncate">Sold by {rec.shop_name}</p>
+                    {rec.price && <p className="text-xs font-extrabold text-emerald-700 mt-1">₦{rec.price}</p>}
+                  </div>
+
+                  {rec.whatsapp_number && (
+                    <a
+                      href={`https://wa.me/${rec.whatsapp_number}?text=${encodeURIComponent(
+                        `Hello! I saw ${rec.name} recommended on CommunityShops and would like to buy.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-center bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[10px] py-1 rounded-lg border border-emerald-200/60 transition"
+                    >
+                      Buy on WhatsApp
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

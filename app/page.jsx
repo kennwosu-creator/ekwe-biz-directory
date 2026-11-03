@@ -44,7 +44,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* HERO IMAGE CONTAINER - FIXED HEIGHT WITH FALLBACK */}
+        {/* HERO IMAGE CONTAINER */}
         <div className="relative w-full h-56 md:h-64 bg-emerald-950 overflow-hidden">
           <Image
             src="/images/village-kiosk.jpg"
@@ -52,9 +52,8 @@ export default async function HomePage() {
             fill
             sizes="100vw"
             priority
-            className="object-cover object-center"
+            className="object-cover object-center opacity-90"
           />
-          {/* GRADIENT OVERLAY */}
           <div className="absolute inset-0 bg-gradient-to-t from-emerald-950 via-emerald-950/20 to-transparent" />
         </div>
 
@@ -111,47 +110,13 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* PORTALS & TOOLS */}
+        {/* PORTALS & TOOLS - CLEANED FOR GENERAL PUBLIC */}
         <section className="space-y-3">
           <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
             PORTALS & TOOLS
           </h2>
 
           <div className="space-y-2.5">
-            <Link
-              href="/agent/onboard"
-              className="block bg-emerald-800 text-white rounded-2xl p-4 shadow-xs hover:bg-emerald-700 transition active:scale-[0.99]"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold flex items-center gap-1.5">
-                    <span>📲</span> Agent Field Onboarding Portal
-                  </h3>
-                  <p className="text-[11px] text-emerald-200 mt-0.5">
-                    Register traders & collect ₦1,000 cash
-                  </p>
-                </div>
-                <span className="text-sm">→</span>
-              </div>
-            </Link>
-
-            <Link
-              href="/agent/dashboard"
-              className="block bg-slate-900 text-white rounded-2xl p-4 shadow-xs hover:bg-slate-800 transition active:scale-[0.99]"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold flex items-center gap-1.5">
-                    <span>💼</span> Agent Earnings Dashboard
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Track total commissions (50% split) & wallet
-                  </p>
-                </div>
-                <span className="text-sm">→</span>
-              </div>
-            </Link>
-
             <Link
               href="/manage"
               className="block bg-white border border-slate-200/90 text-slate-800 rounded-2xl p-4 shadow-xs hover:border-emerald-400 transition active:scale-[0.99]"
@@ -187,6 +152,16 @@ export default async function HomePage() {
             </Link>
           </div>
         </section>
+
+        {/* DISCRETE FOOTER LINK FOR AGENTS */}
+        <div className="text-center pt-2">
+          <Link
+            href="/agents"
+            className="text-[11px] font-semibold text-slate-400 hover:text-emerald-700 transition"
+          >
+            Field Agent Hub →
+          </Link>
+        </div>
       </main>
     </div>
   );
