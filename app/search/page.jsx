@@ -17,12 +17,13 @@ async function getFilterOptions() {
     );
     return { towns: townsRes?.rows || [], categories: categoriesRes?.rows || [] };
   } catch (error) {
+    console.error('[Search Filter DB Error]:', error);
     return { towns: [], categories: [] };
   }
 }
 
 // =========================================================================
-// 🔹 PART 2: UNIFIED SEARCH BACKEND (Data Fetching Function)
+// 🔹 PART 2: UNIFIED SEARCH BACKEND (Data Fetching Function - FIXED)
 // =========================================================================
 async function getUnifiedSearchResults(params) {
   const { q, town: townSlug, category, lat, lng, radius } = params;
@@ -31,49 +32,119 @@ async function getUnifiedSearchResults(params) {
     let selectedTown = null;
     if (townSlug && townSlug.trim()) {
       const townRes = await query(
-        'SELECT id, name, slug, state, lga FROM public.towns WHERE TRIM(LOWER(slug)) = TRIM(LOWER($1)) LIMIT 1',
+        'SELECT id, name, slug, state, lga FROM public.towns WHERE LOWER(TRIM(slug)) = LOWER(TRIM($1)) LIMIT 1',
         [townSlug.trim()]
       );
       selectedTown = townRes?.rows?.[0] || null;
     }
 
-    // 1. Query Businesses & Products
+    // Safely parse GPS coordinates
+    const parsedLat = lat ? parseFloat(lat) : null;
+    const parsedLng = lng ? parseFloat(lng) : null;
+    const parsedRadius = radius ? parseFloat(radius) : 5;
+    const hasGps = !isNaN(parsedLat) && !isNaN(parsedLng) && parsedLat !== null && parsedLng !== null;
+
+    // ----------------------------------------------------
+    // 1. QUERY BUSINESSES & PRODUCTS (FIXED SQL GROUPING)
+    // ----------------------------------------------------
     let bizSql = `
       SELECT 
-        b.id, b.name, b.slug, b.address, b.phone, b.whatsapp_number, b.image_url, b.is_verified,
+        b.id,
+        b.name,
+        b.slug,
+        b.address,
+        b.phone,
+        b.whatsapp_number,
+        b.image_url,
+        b.is_verified,
+        b.is_featured,
+        b.created_at,
         t.name as town_name,
-        COALESCE(json_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '[]') as products_sample
+        ARRAY_REMOVE(ARRAY_AGG(DISTINCT p.name), NULL) as products_sample
+    `;
+
+    const bizParams = [];
+    let idx = 1;
+
+    // Haversine distance calculation if GPS is active
+    if (hasGps) {
+      bizSql += `,
+        (6371 * acos(
+          cos(radians($${idx})) * cos(radians(b.latitude)) * 
+          cos(radians(b.longitude) - radians($${idx + 1})) + 
+          sin(radians($${idx})) * sin(radians(b.latitude))
+        )) AS distance_km
+      `;
+      bizParams.push(parsedLat, parsedLng);
+      idx += 2;
+    }
+
+    bizSql += `
       FROM public.businesses b
       JOIN public.towns t ON b.town_id = t.id
       LEFT JOIN public.products p ON b.id = p.business_id
       LEFT JOIN public.categories c ON p.category_id = c.id
-      WHERE b.status = 'active'
+      WHERE LOWER(b.status) = 'active'
     `;
-    const bizParams = [];
-    let idx = 1;
 
+    // Filter Keyword across shop name, address, product name, or product description
     if (q && q.trim()) {
-      bizSql += ` AND (b.name ILIKE $${idx} OR b.address ILIKE $${idx} OR p.name ILIKE $${idx})`;
+      bizSql += ` AND (b.name ILIKE $${idx} OR b.address ILIKE $${idx} OR p.name ILIKE $${idx} OR p.description ILIKE $${idx})`;
       bizParams.push(`%${q.trim()}%`);
       idx++;
 
-      // Update viral search telemetry counter
+      // Increment product search counters asynchronously for viral tracking
       query(
-        `UPDATE public.products SET search_count = search_count + 1 WHERE LOWER(name) ILIKE $1`,
+        `UPDATE public.products SET search_count = COALESCE(search_count, 0) + 1 WHERE LOWER(name) ILIKE $1`,
         [`%${q.trim().toLowerCase()}%`]
       ).catch(() => {});
     }
 
+    // Filter by selected Town/Community
     if (selectedTown) {
       bizSql += ` AND b.town_id = $${idx}`;
       bizParams.push(selectedTown.id);
       idx++;
     }
 
-    bizSql += ` GROUP BY b.id, t.name ORDER BY b.is_featured DESC, b.created_at DESC;`;
+    // Filter by Category
+    if (category && category.trim()) {
+      bizSql += ` AND LOWER(c.name) = LOWER($${idx})`;
+      bizParams.push(category.trim());
+      idx++;
+    }
+
+    // GPS Radius Filter
+    if (hasGps && parsedRadius) {
+      const latIdx = 1;
+      const lngIdx = 2;
+      bizSql += ` AND (6371 * acos(
+        cos(radians($${latIdx})) * cos(radians(b.latitude)) * 
+        cos(radians(b.longitude) - radians($${lngIdx})) + 
+        sin(radians($${latIdx})) * sin(radians(b.latitude))
+      )) <= $${idx}`;
+      bizParams.push(parsedRadius);
+      idx++;
+    }
+
+    // Explicit GROUP BY for all non-aggregated select columns
+    bizSql += ` 
+      GROUP BY 
+        b.id, b.name, b.slug, b.address, b.phone, b.whatsapp_number, 
+        b.image_url, b.is_verified, b.is_featured, b.created_at, t.name 
+    `;
+
+    if (hasGps) {
+      bizSql += ` ORDER BY distance_km ASC, b.is_featured DESC;`;
+    } else {
+      bizSql += ` ORDER BY b.is_featured DESC, b.created_at DESC;`;
+    }
+
     const bizRes = await query(bizSql, bizParams);
 
-    // 2. Query Community Events
+    // ----------------------------------------------------
+    // 2. QUERY COMMUNITY EVENTS
+    // ----------------------------------------------------
     let eventSql = `
       SELECT e.id, e.title, e.organizer, e.event_date, e.time_label, e.venue, e.description, e.whatsapp_contact, t.name as town_name
       FROM public.events e
@@ -98,13 +169,15 @@ async function getUnifiedSearchResults(params) {
     eventSql += ` ORDER BY e.event_date ASC;`;
     const eventRes = await query(eventSql, eventParams);
 
-    // 3. Query Viral Trending Products
+    // ----------------------------------------------------
+    // 3. QUERY VIRAL TRENDING PRODUCTS
+    // ----------------------------------------------------
     const recSql = `
       SELECT p.name, p.price, b.name as shop_name, b.slug as shop_slug, b.whatsapp_number
       FROM public.products p
       JOIN public.businesses b ON p.business_id = b.id
-      WHERE b.status = 'active'
-      ORDER BY p.search_count DESC, p.created_at DESC
+      WHERE LOWER(b.status) = 'active'
+      ORDER BY COALESCE(p.search_count, 0) DESC, p.created_at DESC
       LIMIT 4;
     `;
     const recRes = await query(recSql, []);
@@ -144,10 +217,9 @@ export default async function SearchPage(props) {
     radius: searchParams?.radius || '5',
   };
 
-  // 🔗 Here is where Part 3 connects to Part 2!
   const [{ towns, categories }, { businesses, events, recommendations, selectedTown }] = await Promise.all([
     getFilterOptions(),
-    getUnifiedSearchResults(initialParams), // <--- Calling Part 2 function here
+    getUnifiedSearchResults(initialParams),
   ]);
 
   const hasSearched = Boolean(
@@ -250,6 +322,11 @@ export default async function SearchPage(props) {
                           {biz.is_verified && (
                             <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded-full shrink-0">
                               ✓
+                            </span>
+                          )}
+                          {biz.distance_km !== undefined && (
+                            <span className="bg-emerald-50 text-emerald-700 font-semibold text-[10px] px-2 py-0.5 rounded-full shrink-0 border border-emerald-200/60 ml-auto">
+                              {parseFloat(biz.distance_km).toFixed(1)} km
                             </span>
                           )}
                         </div>
