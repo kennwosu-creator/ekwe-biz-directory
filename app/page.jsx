@@ -4,14 +4,55 @@ import { query } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 
-async function getActiveTowns() {
+async function getFeaturedTowns() {
   try {
-    const res = await query(
-      'SELECT id, name, slug, lga, state FROM public.towns WHERE is_active = true ORDER BY name ASC'
+    // 1. Fetch communities with active shops first (Ekwe pinned to top)
+    const activeTownsRes = await query(
+      `SELECT 
+         t.id, 
+         t.name, 
+         t.slug, 
+         t.lga, 
+         t.state, 
+         t.district, 
+         t.sub_locality,
+         COUNT(b.id)::int AS shop_count
+       FROM public.towns t
+       JOIN public.businesses b ON b.town_id = t.id
+       WHERE t.is_active = true 
+         AND (b.status::text ILIKE 'active' OR b.status IS NULL)
+       GROUP BY t.id, t.name, t.slug, t.lga, t.state, t.district, t.sub_locality
+       ORDER BY 
+         CASE WHEN LOWER(t.district) = 'ekwe' OR LOWER(t.name) = 'ekwe' THEN 0 ELSE 1 END,
+         shop_count DESC, 
+         t.name ASC
+       LIMIT 12`
     );
-    return res ? res.rows : [];
+
+    if (activeTownsRes.rows.length > 0) {
+      return activeTownsRes.rows;
+    }
+
+    // 2. Fallback if database is fresh: Show major primary district hubs only (Ekwe, Umudibi, etc.)
+    const fallbackRes = await query(
+      `SELECT id, name, slug, lga, state, district, sub_locality, 0 AS shop_count
+       FROM public.towns
+       WHERE is_active = true 
+         AND (
+           LOWER(name) = 'ekwe' 
+           OR LOWER(district) = 'ekwe' 
+           OR LOWER(name) IN ('umudibi', 'owerri', 'orlu', 'okigwe')
+         )
+         AND (sub_locality IS NULL OR sub_locality = '' OR LOWER(sub_locality) LIKE '%central%')
+       ORDER BY 
+         CASE WHEN LOWER(name) = 'ekwe' OR LOWER(district) = 'ekwe' THEN 0 ELSE 1 END,
+         name ASC
+       LIMIT 12`
+    );
+
+    return fallbackRes.rows;
   } catch (error) {
-    console.error('Error fetching towns on home page:', error);
+    console.error('Error fetching featured towns on home page:', error);
     return [];
   }
 }
@@ -25,7 +66,7 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const towns = await getActiveTowns();
+  const towns = await getFeaturedTowns();
 
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
@@ -79,11 +120,19 @@ export default async function HomePage() {
       </section>
 
       <main className="max-w-md mx-auto px-4 pt-4 space-y-6">
-        {/* EXPLORE COMMUNITIES & TOWNS */}
+        {/* ACTIVE COMMUNITIES & TOWNS */}
         <section className="space-y-3">
-          <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
-            EXPLORE COMMUNITIES & TOWNS
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+              ACTIVE COMMUNITIES & TOWNS
+            </h2>
+            <Link
+              href="/register"
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition"
+            >
+              + Register Shop
+            </Link>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             {towns.length > 0 ? (
@@ -93,9 +142,18 @@ export default async function HomePage() {
                   href={`/directory/${town.state.toLowerCase()}/${town.slug}`}
                   className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs hover:border-emerald-500 transition active:scale-95 flex flex-col justify-between"
                 >
-                  <span className="text-xl mb-2">📍</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl">📍</span>
+                    {town.shop_count > 0 && (
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                        {town.shop_count} {town.shop_count === 1 ? 'Shop' : 'Shops'}
+                      </span>
+                    )}
+                  </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">{town.name} Directory</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {town.sub_locality ? `${town.sub_locality} (${town.name})` : `${town.name} Directory`}
+                    </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {town.lga} LGA, {town.state}
                     </p>
@@ -104,13 +162,13 @@ export default async function HomePage() {
               ))
             ) : (
               <div className="col-span-2 bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">
-                Loading communities...
+                Loading active communities...
               </div>
             )}
           </div>
         </section>
 
-        {/* PORTALS & TOOLS - CLEANED FOR GENERAL PUBLIC */}
+        {/* PORTALS & TOOLS */}
         <section className="space-y-3">
           <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
             PORTALS & TOOLS

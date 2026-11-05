@@ -7,14 +7,14 @@ import AdvancedSearch from '@/components/AdvancedSearch';
 import SafeImage from '@/components/SafeImage';
 import WhatsAppButton from '@/components/WhatsAppButton';
 
-// Fetch town details, all available towns, categories, and active local businesses safely
+// Fetch town details, sister towns in LGA, categories, and active local businesses safely
 async function getDirectoryData(stateParam, townParam) {
   if (!stateParam || !townParam) return null;
 
   try {
-    // 1. Fetch target town details using explicit schema and TRIM
+    // 1. Fetch target town details using explicit schema and TRIM (1 row limit)
     const townSql = `
-      SELECT id, state, lga, name, slug 
+      SELECT id, state, lga, name, slug, district, sub_locality 
       FROM public.towns 
       WHERE TRIM(LOWER(state)) = TRIM(LOWER($1)) 
         AND (
@@ -50,24 +50,33 @@ async function getDirectoryData(stateParam, townParam) {
         ) as products_sample
       FROM public.businesses b
       LEFT JOIN public.products p ON b.id = p.business_id
-      WHERE b.town_id = $1 AND b.status = 'active'
+      WHERE b.town_id = $1 AND (b.status::text ILIKE 'active' OR b.status IS NULL)
       GROUP BY b.id
       ORDER BY b.is_featured DESC, b.created_at DESC;
     `;
 
     const bizRes = await query(bizSql, [town.id]);
 
-    // 3. Fetch active product categories & all active towns for AdvancedSearch component
+    // 3. Fetch categories
     const categoriesRes = await query('SELECT name FROM public.categories ORDER BY name ASC');
-    const allTownsRes = await query(
-      'SELECT id, name, slug, lga, state FROM public.towns WHERE is_active = true ORDER BY name ASC'
+
+    // 4. Targeted LGA query: Fetch sister towns within the same LGA (~15-25 rows instead of 172k)
+    const sisterTownsRes = await query(
+      `SELECT DISTINCT ON (LOWER(TRIM(name))) id, name, slug, lga, state 
+       FROM public.towns 
+       WHERE is_active = true 
+         AND LOWER(state) = LOWER($1) 
+         AND LOWER(lga) = LOWER($2)
+       ORDER BY LOWER(TRIM(name)) ASC 
+       LIMIT 25`,
+      [town.state, town.lga]
     );
 
     return {
       town,
       businesses: bizRes ? bizRes.rows : [],
       categories: categoriesRes ? categoriesRes.rows : [],
-      allTowns: allTownsRes ? allTownsRes.rows : [],
+      allTowns: sisterTownsRes ? sisterTownsRes.rows : [],
     };
   } catch (error) {
     console.error('[DB Query Error in getDirectoryData]:', error);
@@ -135,7 +144,7 @@ export default async function RegionalDirectoryPage({ params }) {
         </Link>
 
         <Link
-          href="/join"
+          href="/register"
           className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-xs transition"
         >
           + Add Shop
@@ -234,7 +243,7 @@ export default async function RegionalDirectoryPage({ params }) {
               </p>
               <div className="pt-2">
                 <Link
-                  href="/join"
+                  href="/register"
                   className="inline-block bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs"
                 >
                   Register Shop via WhatsApp

@@ -1,15 +1,24 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function RegisterShopPage() {
-  const [allTowns, setAllTowns] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState(null);
 
-  // 4-Tier Cascading location state
+  // Dynamic dropdown lists loaded step-by-step
+  const [statesList, setStatesList] = useState([]);
+  const [lgasList, setLgasList] = useState([]);
+  const [districtsList, setDistrictsList] = useState([]);
+  const [villagesList, setVillagesList] = useState([]);
+
+  // Cascading dropdown loading indicators
+  const [loadingLgas, setLoadingLgas] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingVillages, setLoadingVillages] = useState(false);
+
+  // 4-Tier Cascading location selection state
   const [selectedState, setSelectedState] = useState('');
   const [selectedLga, setSelectedLga] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
@@ -26,60 +35,89 @@ export default function RegisterShopPage() {
     products: [{ name: '', price: '' }],
   });
 
+  // Step 1: Fetch States list on component mount
   useEffect(() => {
-    async function loadOptions() {
+    async function loadStates() {
       try {
         const res = await fetch('/api/directory/options');
         const data = await res.json();
-        if (data.towns) setAllTowns(data.towns);
-        if (data.categories) setCategories(data.categories);
+        if (data.states) setStatesList(data.states);
       } catch (err) {
-        console.error('Failed to load options', err);
+        console.error('Failed to load states', err);
       }
     }
-    loadOptions();
+    loadStates();
   }, []);
 
-  // 1. Compute unique States
-  const statesList = useMemo(() => {
-    const set = new Set(allTowns.map((t) => t.state).filter(Boolean));
-    return Array.from(set).sort();
-  }, [allTowns]);
+  // Step 2: Handle State change -> Fetch LGAs dynamically
+  const handleStateChange = async (stateVal) => {
+    setSelectedState(stateVal);
+    setSelectedLga('');
+    setSelectedDistrict('');
+    setLgasList([]);
+    setDistrictsList([]);
+    setVillagesList([]);
+    setFormData((prev) => ({ ...prev, town_id: '' }));
 
-  // 2. Compute unique LGAs for chosen State
-  const lgasList = useMemo(() => {
-    if (!selectedState) return [];
-    const set = new Set(
-      allTowns
-        .filter((t) => t.state === selectedState)
-        .map((t) => t.lga)
-        .filter(Boolean)
-    );
-    return Array.from(set).sort();
-  }, [allTowns, selectedState]);
+    if (!stateVal) return;
 
-  // 3. Compute unique Major Towns / Districts for chosen State & LGA
-  const districtsList = useMemo(() => {
-    if (!selectedState || !selectedLga) return [];
-    const set = new Set(
-      allTowns
-        .filter((t) => t.state === selectedState && t.lga === selectedLga)
-        .map((t) => t.district || t.name)
-        .filter(Boolean)
-    );
-    return Array.from(set).sort();
-  }, [allTowns, selectedState, selectedLga]);
+    setLoadingLgas(true);
+    try {
+      const res = await fetch(`/api/directory/options?state=${encodeURIComponent(stateVal)}`);
+      const data = await res.json();
+      if (data.lgas) setLgasList(data.lgas);
+    } catch (err) {
+      console.error('Failed to load LGAs', err);
+    } finally {
+      setLoadingLgas(false);
+    }
+  };
 
-  // 4. Compute Villages / Settlements for chosen District
-  const villagesList = useMemo(() => {
-    if (!selectedState || !selectedLga || !selectedDistrict) return [];
-    return allTowns.filter(
-      (t) =>
-        t.state === selectedState &&
-        t.lga === selectedLga &&
-        (t.district === selectedDistrict || (!t.district && t.name === selectedDistrict))
-    );
-  }, [allTowns, selectedState, selectedLga, selectedDistrict]);
+  // Step 3: Handle LGA change -> Fetch Districts dynamically
+  const handleLgaChange = async (lgaVal) => {
+    setSelectedLga(lgaVal);
+    setSelectedDistrict('');
+    setDistrictsList([]);
+    setVillagesList([]);
+    setFormData((prev) => ({ ...prev, town_id: '' }));
+
+    if (!lgaVal) return;
+
+    setLoadingDistricts(true);
+    try {
+      const res = await fetch(
+        `/api/directory/options?state=${encodeURIComponent(selectedState)}&lga=${encodeURIComponent(lgaVal)}`
+      );
+      const data = await res.json();
+      if (data.districts) setDistrictsList(data.districts);
+    } catch (err) {
+      console.error('Failed to load districts', err);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  // Step 4: Handle District change -> Fetch Villages/Kindreds dynamically
+  const handleDistrictChange = async (districtVal) => {
+    setSelectedDistrict(districtVal);
+    setVillagesList([]);
+    setFormData((prev) => ({ ...prev, town_id: '' }));
+
+    if (!districtVal) return;
+
+    setLoadingVillages(true);
+    try {
+      const res = await fetch(
+        `/api/directory/options?state=${encodeURIComponent(selectedState)}&lga=${encodeURIComponent(selectedLga)}&district=${encodeURIComponent(districtVal)}`
+      );
+      const data = await res.json();
+      if (data.villages) setVillagesList(data.villages);
+    } catch (err) {
+      console.error('Failed to load villages', err);
+    } finally {
+      setLoadingVillages(false);
+    }
+  };
 
   const handleProductChange = (index, field, value) => {
     const updated = [...formData.products];
@@ -103,7 +141,7 @@ export default function RegisterShopPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.town_id) {
-      alert('Please complete all location selections (State, LGA, District, and Village).');
+      alert('Please complete all location selections (State, LGA, District, and Village/Kindred).');
       return;
     }
     setLoading(true);
@@ -193,7 +231,7 @@ export default function RegisterShopPage() {
               />
             </div>
 
-            {/* 4-TIER LOCATION CASCADING DROPDOWNS */}
+            {/* LAZY-LOADED 4-TIER LOCATION CASCADING DROPDOWNS */}
             <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
               <label className="block text-xs font-bold text-slate-800">
                 Select Location (State / LGA / District / Village) *
@@ -203,12 +241,7 @@ export default function RegisterShopPage() {
               <select
                 required
                 value={selectedState}
-                onChange={(e) => {
-                  setSelectedState(e.target.value);
-                  setSelectedLga('');
-                  setSelectedDistrict('');
-                  setFormData({ ...formData, town_id: '' });
-                }}
+                onChange={(e) => handleStateChange(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium"
               >
                 <option value="">-- 1. Select State --</option>
@@ -222,16 +255,14 @@ export default function RegisterShopPage() {
               {/* 2. LGA Select */}
               <select
                 required
-                disabled={!selectedState}
+                disabled={!selectedState || loadingLgas}
                 value={selectedLga}
-                onChange={(e) => {
-                  setSelectedLga(e.target.value);
-                  setSelectedDistrict('');
-                  setFormData({ ...formData, town_id: '' });
-                }}
+                onChange={(e) => handleLgaChange(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium disabled:opacity-50"
               >
-                <option value="">-- 2. Select Local Govt (LGA) --</option>
+                <option value="">
+                  {loadingLgas ? 'Loading LGAs...' : '-- 2. Select Local Govt (LGA) --'}
+                </option>
                 {lgasList.map((lga) => (
                   <option key={lga} value={lga}>
                     {lga} LGA
@@ -242,15 +273,14 @@ export default function RegisterShopPage() {
               {/* 3. Major District / Town Select */}
               <select
                 required
-                disabled={!selectedLga}
+                disabled={!selectedLga || loadingDistricts}
                 value={selectedDistrict}
-                onChange={(e) => {
-                  setSelectedDistrict(e.target.value);
-                  setFormData({ ...formData, town_id: '' });
-                }}
+                onChange={(e) => handleDistrictChange(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-semibold text-slate-800 disabled:opacity-50"
               >
-                <option value="">-- 3. Select Major Town / District --</option>
+                <option value="">
+                  {loadingDistricts ? 'Loading Districts...' : '-- 3. Select Major Town / District --'}
+                </option>
                 {districtsList.map((dist) => (
                   <option key={dist} value={dist}>
                     {dist}
@@ -258,18 +288,20 @@ export default function RegisterShopPage() {
                 ))}
               </select>
 
-              {/* 4. Village / Settlement Select */}
+              {/* 4. Village / Settlement / Kindred Select */}
               <select
                 required
-                disabled={!selectedDistrict}
+                disabled={!selectedDistrict || loadingVillages}
                 value={formData.town_id}
                 onChange={(e) => setFormData({ ...formData, town_id: e.target.value })}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-bold text-emerald-800 disabled:opacity-50"
               >
-                <option value="">-- 4. Select Village / Settlement --</option>
+                <option value="">
+                  {loadingVillages ? 'Loading Villages...' : '-- 4. Select Village / Settlement --'}
+                </option>
                 {villagesList.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.name}
+                    {v.name} {v.sub_locality ? `(${v.sub_locality})` : ''}
                   </option>
                 ))}
               </select>
@@ -383,7 +415,7 @@ export default function RegisterShopPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
           >
             {loading ? 'Registering Store...' : 'Complete Shop Registration'}
           </button>
