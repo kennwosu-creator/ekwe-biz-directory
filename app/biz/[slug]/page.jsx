@@ -19,10 +19,13 @@ async function getBusinessData(slug) {
       b.is_verified,
       t.name as town_name,
       t.state,
+      t.lga as town_lga,
+      t.district as town_district,
+      t.sub_locality as town_sub_locality,
       t.slug as town_slug
     FROM businesses b
     JOIN towns t ON b.town_id = t.id
-    WHERE b.slug = $1 AND b.status = 'active';
+    WHERE b.slug = $1 AND (b.status::text ILIKE 'active' OR b.status IS NULL);
   `;
 
   const businessRes = await query(sql, [slug]);
@@ -35,6 +38,7 @@ async function getBusinessData(slug) {
     SELECT 
       p.id,
       p.name,
+      p.price,
       p.in_stock,
       c.name as category_name,
       c.icon_name
@@ -64,9 +68,13 @@ export async function generateMetadata({ params }) {
   const data = await getBusinessData(slug);
   if (!data) return { title: 'Business Not Found' };
 
+  const locationLabel = data.business.town_sub_locality
+    ? `${data.business.town_sub_locality}, ${data.business.town_name}`
+    : data.business.town_name;
+
   return {
-    title: `${data.business.name} - ${data.business.town_name} Directory`,
-    description: `View products, location, and contact information for ${data.business.name} in ${data.business.town_name}, ${data.business.state}.`,
+    title: `${data.business.name} - ${locationLabel} Directory`,
+    description: `View products, location, and contact information for ${data.business.name} in ${locationLabel}, ${data.business.state}.`,
   };
 }
 
@@ -80,12 +88,12 @@ export default async function BusinessPage({ params }) {
 
   const { business, groupedProducts } = data;
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const adminWhatsAppNumber = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || '2348031234567';
+  const adminWhatsAppNumber = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || '14165261826';
 
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-24">
       {/* HEADER */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
         <Link
           href={`/directory/${business.state.toLowerCase()}/${business.town_name.toLowerCase()}`}
           className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-full hover:bg-emerald-100 transition"
@@ -98,7 +106,7 @@ export default async function BusinessPage({ params }) {
       {/* MAIN CONTENT */}
       <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
         {/* HERO CARD */}
-        <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="relative h-48 w-full bg-slate-200">
             <Image
               src={
@@ -113,7 +121,7 @@ export default async function BusinessPage({ params }) {
               priority
             />
             {business.is_verified && (
-              <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+              <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1">
                 ✓ Verified Shop
               </div>
             )}
@@ -122,9 +130,22 @@ export default async function BusinessPage({ params }) {
           <div className="p-5">
             <h1 className="text-xl font-bold text-slate-900 leading-tight">{business.name}</h1>
 
-            <div className="mt-2 flex items-center text-slate-500 text-sm">
-              <span className="mr-1.5">📍</span>
-              <span>{business.address}</span>
+            {/* FULL 5-TIER LOCATION DISPLAY */}
+            <div className="mt-2 text-slate-600 text-xs space-y-1">
+              <div className="flex items-start gap-1.5">
+                <span className="shrink-0 text-sm">📍</span>
+                <div>
+                  <p className="font-semibold text-slate-800">{business.address}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {business.town_sub_locality && (
+                      <span className="font-bold text-emerald-700">{business.town_sub_locality} • </span>
+                    )}
+                    <span>{business.town_name}</span>
+                    {business.town_district && ` (${business.town_district} District)`}
+                    {business.town_lga && `, ${business.town_lga} LGA`}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* CALL & WHATSAPP BUTTONS */}
@@ -138,7 +159,7 @@ export default async function BusinessPage({ params }) {
 
               <a
                 href={`https://wa.me/${business.whatsapp_number.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                  `Hello ${business.name}, I found your page on the ${business.town_name} Directory.`
+                  `Hello ${business.name}, I found your page on the CommunityShops Directory.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -151,7 +172,7 @@ export default async function BusinessPage({ params }) {
         </section>
 
         {/* PRODUCTS INVENTORY CARD */}
-        <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+        <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5">
           <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               📦 Available Items & Services
@@ -172,9 +193,14 @@ export default async function BusinessPage({ params }) {
                     {items.map((item) => (
                       <span
                         key={item.id}
-                        className="bg-slate-50 border border-slate-200/60 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-2xs"
+                        className="bg-slate-50 border border-slate-200/60 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-2xs flex items-center gap-1.5"
                       >
-                        {item.name}
+                        <span>{item.name}</span>
+                        {item.price && (
+                          <span className="font-extrabold text-emerald-700">
+                            ₦{Number(item.price).toLocaleString()}
+                          </span>
+                        )}
                       </span>
                     ))}
                   </div>

@@ -40,26 +40,28 @@ async function getSearchResults(params) {
     }
 
     // 2. SEARCH MATCHING PRODUCTS
-    let productSql = `
-      SELECT 
-        p.id,
-        p.name AS product_name,
-        p.price,
-        p.in_stock,
-        b.id AS business_id,
-        b.name AS shop_name,
-        b.slug AS shop_slug,
-        b.address,
-        b.phone,
-        b.whatsapp_number,
-        b.image_url,
-        b.is_verified,
-        t.name AS town_name
-      FROM public.products p
-      JOIN public.businesses b ON p.business_id = b.id
-      JOIN public.towns t ON b.town_id = t.id
-      WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
-    `;
+let productSql = `
+  SELECT 
+    p.id,
+    p.name AS product_name,
+    p.price,
+    p.in_stock,
+    b.id AS business_id,
+    b.name AS shop_name,
+    b.slug AS shop_slug,
+    b.address,
+    b.phone,
+    b.whatsapp_number,
+    b.image_url,
+    b.is_verified,
+    t.name AS town_name,
+    t.district AS town_district,
+    t.sub_locality AS town_sub_locality
+  FROM public.products p
+  JOIN public.businesses b ON p.business_id = b.id
+  JOIN public.towns t ON b.town_id = t.id
+  WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
+`;
 
     const productParams = [];
     let pIdx = 1;
@@ -119,22 +121,24 @@ async function getSearchResults(params) {
     }
 
     // 4. SEARCH MATCHING SHOPS DIRECTLY
-    let bizSql = `
-      SELECT 
-        b.id,
-        b.name,
-        b.slug,
-        b.address,
-        b.phone,
-        b.whatsapp_number,
-        b.image_url,
-        b.is_verified,
-        b.is_featured,
-        t.name AS town_name
-      FROM public.businesses b
-      JOIN public.towns t ON b.town_id = t.id
-      WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
-    `;
+let bizSql = `
+  SELECT 
+    b.id,
+    b.name,
+    b.slug,
+    b.address,
+    b.phone,
+    b.whatsapp_number,
+    b.image_url,
+    b.is_verified,
+    b.is_featured,
+    t.name AS town_name,
+    t.district AS town_district,
+    t.sub_locality AS town_sub_locality
+  FROM public.businesses b
+  JOIN public.towns t ON b.town_id = t.id
+  WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
+`;
     const bizParams = [];
     let bIdx = 1;
 
@@ -322,13 +326,19 @@ export default async function SearchPage(props) {
                         )}
                       </div>
 
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        Sold by{' '}
-                        <Link href={`/biz/${item.shop_slug}`} className="font-semibold text-slate-700 underline">
-                          {item.shop_name}
-                        </Link>{' '}
-                        ({item.town_name})
-                      </p>
+{/* Product Card Location Line */}
+<p className="text-[11px] text-slate-500 truncate mt-0.5">
+  Sold by{' '}
+  <Link href={`/biz/${item.shop_slug}`} className="font-semibold text-slate-700 underline">
+    {item.shop_name}
+  </Link>{' '}
+  ({item.town_sub_locality ? `${item.town_sub_locality}, ` : ''}{item.town_name})
+</p>
+
+{/* Shop Card Location Line */}
+<p className="text-[10px] text-slate-500">
+  📍 {biz.address} ({biz.town_sub_locality ? `${biz.town_sub_locality}, ` : ''}{biz.town_name})
+</p>
                     </div>
 
                     <div className="pt-2 flex items-center justify-between gap-2">
