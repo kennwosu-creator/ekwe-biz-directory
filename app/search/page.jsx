@@ -23,7 +23,7 @@ async function getFilterOptions() {
 }
 
 // =========================================================================
-// 🔹 SCHEMA-COMPLIANT UNIFIED SEARCH BACKEND
+// 🔹 SCHEMA-COMPLIANT UNIFIED SEARCH BACKEND WITH CATEGORY FILTERING
 // =========================================================================
 async function getSearchResults(params) {
   const { q, town: townSlug, category: categoryId } = params;
@@ -40,28 +40,28 @@ async function getSearchResults(params) {
     }
 
     // 2. SEARCH MATCHING PRODUCTS
-let productSql = `
-  SELECT 
-    p.id,
-    p.name AS product_name,
-    p.price,
-    p.in_stock,
-    b.id AS business_id,
-    b.name AS shop_name,
-    b.slug AS shop_slug,
-    b.address,
-    b.phone,
-    b.whatsapp_number,
-    b.image_url,
-    b.is_verified,
-    t.name AS town_name,
-    t.district AS town_district,
-    t.sub_locality AS town_sub_locality
-  FROM public.products p
-  JOIN public.businesses b ON p.business_id = b.id
-  JOIN public.towns t ON b.town_id = t.id
-  WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
-`;
+    let productSql = `
+      SELECT 
+        p.id,
+        p.name AS product_name,
+        p.price,
+        p.in_stock,
+        b.id AS business_id,
+        b.name AS shop_name,
+        b.slug AS shop_slug,
+        b.address,
+        b.phone,
+        b.whatsapp_number,
+        b.image_url,
+        b.is_verified,
+        t.name AS town_name,
+        t.district AS town_district,
+        t.sub_locality AS town_sub_locality
+      FROM public.products p
+      JOIN public.businesses b ON p.business_id = b.id
+      JOIN public.towns t ON b.town_id = t.id
+      WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
+    `;
 
     const productParams = [];
     let pIdx = 1;
@@ -79,7 +79,7 @@ let productSql = `
     }
 
     if (categoryId && categoryId.trim()) {
-      productSql += ` AND p.category_id = $${pIdx}::uuid`;
+      productSql += ` AND (p.category_id = $${pIdx}::uuid OR b.category_id = $${pIdx}::uuid)`;
       productParams.push(categoryId.trim());
       pIdx++;
     }
@@ -90,7 +90,7 @@ let productSql = `
     let isFallbackSearch = false;
 
     // 3. SMART FALLBACK: If zero matches in selected town, search across ALL towns
-    if (products.length === 0 && selectedTown && q && q.trim()) {
+    if (products.length === 0 && selectedTown && (q || categoryId)) {
       let fallbackSql = `
         SELECT 
           p.id,
@@ -105,15 +105,30 @@ let productSql = `
           b.whatsapp_number,
           b.image_url,
           b.is_verified,
-          t.name AS town_name
+          t.name AS town_name,
+          t.sub_locality AS town_sub_locality
         FROM public.products p
         JOIN public.businesses b ON p.business_id = b.id
         JOIN public.towns t ON b.town_id = t.id
         WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
-        AND (p.name ILIKE $1 OR b.name ILIKE $1 OR b.address ILIKE $1)
-        ORDER BY p.created_at DESC LIMIT 30;
       `;
-      let fallbackRes = await query(fallbackSql, [`%${q.trim()}%`]);
+      let fallbackParams = [];
+      let fIdx = 1;
+
+      if (q && q.trim()) {
+        fallbackSql += ` AND (p.name ILIKE $${fIdx} OR b.name ILIKE $${fIdx} OR b.address ILIKE $${fIdx})`;
+        fallbackParams.push(`%${q.trim()}%`);
+        fIdx++;
+      }
+
+      if (categoryId && categoryId.trim()) {
+        fallbackSql += ` AND (p.category_id = $${fIdx}::uuid OR b.category_id = $${fIdx}::uuid)`;
+        fallbackParams.push(categoryId.trim());
+        fIdx++;
+      }
+
+      fallbackSql += ` ORDER BY p.created_at DESC LIMIT 30;`;
+      let fallbackRes = await query(fallbackSql, fallbackParams);
       if (fallbackRes && fallbackRes.rows.length > 0) {
         products = fallbackRes.rows;
         isFallbackSearch = true;
@@ -121,24 +136,24 @@ let productSql = `
     }
 
     // 4. SEARCH MATCHING SHOPS DIRECTLY
-let bizSql = `
-  SELECT 
-    b.id,
-    b.name,
-    b.slug,
-    b.address,
-    b.phone,
-    b.whatsapp_number,
-    b.image_url,
-    b.is_verified,
-    b.is_featured,
-    t.name AS town_name,
-    t.district AS town_district,
-    t.sub_locality AS town_sub_locality
-  FROM public.businesses b
-  JOIN public.towns t ON b.town_id = t.id
-  WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
-`;
+    let bizSql = `
+      SELECT 
+        b.id,
+        b.name,
+        b.slug,
+        b.address,
+        b.phone,
+        b.whatsapp_number,
+        b.image_url,
+        b.is_verified,
+        b.is_featured,
+        t.name AS town_name,
+        t.district AS town_district,
+        t.sub_locality AS town_sub_locality
+      FROM public.businesses b
+      JOIN public.towns t ON b.town_id = t.id
+      WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
+    `;
     const bizParams = [];
     let bIdx = 1;
 
@@ -151,6 +166,12 @@ let bizSql = `
     if (selectedTown && !isFallbackSearch) {
       bizSql += ` AND b.town_id = $${bIdx}`;
       bizParams.push(selectedTown.id);
+      bIdx++;
+    }
+
+    if (categoryId && categoryId.trim()) {
+      bizSql += ` AND b.category_id = $${bIdx}::uuid`;
+      bizParams.push(categoryId.trim());
       bIdx++;
     }
 
@@ -326,19 +347,14 @@ export default async function SearchPage(props) {
                         )}
                       </div>
 
-{/* Product Card Location Line */}
-<p className="text-[11px] text-slate-500 truncate mt-0.5">
-  Sold by{' '}
-  <Link href={`/biz/${item.shop_slug}`} className="font-semibold text-slate-700 underline">
-    {item.shop_name}
-  </Link>{' '}
-  ({item.town_sub_locality ? `${item.town_sub_locality}, ` : ''}{item.town_name})
-</p>
-
-{/* Shop Card Location Line */}
-<p className="text-[10px] text-slate-500">
-  📍 {biz.address} ({biz.town_sub_locality ? `${biz.town_sub_locality}, ` : ''}{biz.town_name})
-</p>
+                      {/* Product Card Location Line */}
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        Sold by{' '}
+                        <Link href={`/biz/${item.shop_slug}`} className="font-semibold text-slate-700 underline">
+                          {item.shop_name}
+                        </Link>{' '}
+                        ({item.town_sub_locality ? `${item.town_sub_locality}, ` : ''}{item.town_name})
+                      </p>
                     </div>
 
                     <div className="pt-2 flex items-center justify-between gap-2">
@@ -404,7 +420,9 @@ export default async function SearchPage(props) {
                           </span>
                         )}
                       </div>
-                      <p className="text-[10px] text-slate-500">📍 {biz.address} ({biz.town_name})</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        📍 {biz.address} ({biz.town_sub_locality ? `${biz.town_sub_locality}, ` : ''}{biz.town_name})
+                      </p>
                     </div>
                     <WhatsAppButton whatsappNumber={biz.whatsapp_number} businessName={biz.name} />
                   </div>

@@ -4,7 +4,7 @@ import { query } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
 
-async function getFeaturedTowns() {
+async function getHomePageData() {
   try {
     // 1. Fetch communities with active shops first (Ekwe pinned to top)
     const activeTownsRes = await query(
@@ -29,31 +29,41 @@ async function getFeaturedTowns() {
        LIMIT 12`
     );
 
+    let towns = [];
     if (activeTownsRes.rows.length > 0) {
-      return activeTownsRes.rows;
+      towns = activeTownsRes.rows;
+    } else {
+      // 2. Fallback if database is fresh: Show major primary district hubs only (Ekwe, Umudibi, etc.)
+      const fallbackRes = await query(
+        `SELECT id, name, slug, lga, state, district, sub_locality, 0 AS shop_count
+         FROM public.towns
+         WHERE is_active = true 
+           AND (
+             LOWER(name) = 'ekwe' 
+             OR LOWER(district) = 'ekwe' 
+             OR LOWER(name) IN ('umudibi', 'owerri', 'orlu', 'okigwe')
+           )
+           AND (sub_locality IS NULL OR sub_locality = '' OR LOWER(sub_locality) LIKE '%central%')
+         ORDER BY 
+           CASE WHEN LOWER(name) = 'ekwe' OR LOWER(district) = 'ekwe' THEN 0 ELSE 1 END,
+           name ASC
+         LIMIT 12`
+      );
+      towns = fallbackRes.rows;
     }
 
-    // 2. Fallback if database is fresh: Show major primary district hubs only (Ekwe, Umudibi, etc.)
-    const fallbackRes = await query(
-      `SELECT id, name, slug, lga, state, district, sub_locality, 0 AS shop_count
-       FROM public.towns
-       WHERE is_active = true 
-         AND (
-           LOWER(name) = 'ekwe' 
-           OR LOWER(district) = 'ekwe' 
-           OR LOWER(name) IN ('umudibi', 'owerri', 'orlu', 'okigwe')
-         )
-         AND (sub_locality IS NULL OR sub_locality = '' OR LOWER(sub_locality) LIKE '%central%')
-       ORDER BY 
-         CASE WHEN LOWER(name) = 'ekwe' OR LOWER(district) = 'ekwe' THEN 0 ELSE 1 END,
-         name ASC
-       LIMIT 12`
+    // 3. Fetch village-friendly categories for quick browsing
+    const categoriesRes = await query(
+      'SELECT id, name, icon_name FROM public.categories ORDER BY name ASC'
     );
 
-    return fallbackRes.rows;
+    return {
+      towns,
+      categories: categoriesRes?.rows || [],
+    };
   } catch (error) {
-    console.error('Error fetching featured towns on home page:', error);
-    return [];
+    console.error('Error fetching home page data:', error);
+    return { towns: [], categories: [] };
   }
 }
 
@@ -66,7 +76,7 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const towns = await getFeaturedTowns();
+  const { towns, categories } = await getHomePageData();
 
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
@@ -110,7 +120,7 @@ export default async function HomePage() {
               <input
                 type="text"
                 name="q"
-                placeholder="Search rice, beer, garri, mechanics in your community..."
+                placeholder="Search chemist, garri, bukka, POS in your community..."
                 className="w-full bg-white text-slate-800 rounded-xl pl-9 pr-4 py-3 text-xs placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-sm"
               />
               <span className="absolute left-3 top-3.5 text-slate-400 text-xs">🔍</span>
@@ -120,6 +130,27 @@ export default async function HomePage() {
       </section>
 
       <main className="max-w-md mx-auto px-4 pt-4 space-y-6">
+        {/* VILLAGE CATEGORIES QUICK-BROWSE BAR */}
+        {categories.length > 0 && (
+          <section className="space-y-2.5">
+            <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+              BROWSE VILLAGE TRADES
+            </h2>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {categories.map((cat) => (
+                <Link
+                  key={cat.id}
+                  href={`/search?category=${cat.id}`}
+                  className="bg-white border border-slate-200/90 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 text-[11px] font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap shadow-2xs transition active:scale-95 flex items-center gap-1.5 shrink-0"
+                >
+                  <span>🛍️</span>
+                  <span>{cat.name}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ACTIVE COMMUNITIES & TOWNS */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">

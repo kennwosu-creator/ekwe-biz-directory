@@ -9,6 +9,7 @@ export default function RegisterShopPage() {
 
   // Dynamic dropdown lists loaded step-by-step
   const [statesList, setStatesList] = useState([]);
+  const [categoriesList, setCategoriesList] = useState([]);
   const [lgasList, setLgasList] = useState([]);
   const [districtsList, setDistrictsList] = useState([]);
   const [villagesList, setVillagesList] = useState([]);
@@ -18,13 +19,14 @@ export default function RegisterShopPage() {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingVillages, setLoadingVillages] = useState(false);
 
-  // 4-Tier Cascading location selection state
+  // Cascading location selection state
   const [selectedState, setSelectedState] = useState('');
   const [selectedLga, setSelectedLga] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
+    category_id: '',
     town_id: '',
     address: '',
     phone: '',
@@ -35,18 +37,19 @@ export default function RegisterShopPage() {
     products: [{ name: '', price: '' }],
   });
 
-  // Step 1: Fetch States list on component mount
+  // Step 1: Fetch States & Categories on component mount
   useEffect(() => {
-    async function loadStates() {
+    async function loadInitialOptions() {
       try {
         const res = await fetch('/api/directory/options');
         const data = await res.json();
         if (data.states) setStatesList(data.states);
+        if (data.categories) setCategoriesList(data.categories);
       } catch (err) {
-        console.error('Failed to load states', err);
+        console.error('Failed to load initial options', err);
       }
     }
-    loadStates();
+    loadInitialOptions();
   }, []);
 
   // Step 2: Handle State change -> Fetch LGAs dynamically
@@ -140,6 +143,10 @@ export default function RegisterShopPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.category_id) {
+      alert('Please select a business category.');
+      return;
+    }
     if (!formData.town_id) {
       alert('Please complete all location selections (State, LGA, District, and Village/Kindred).');
       return;
@@ -226,9 +233,27 @@ export default function RegisterShopPage() {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Chief Okeke Cassava & Grain Store"
+                placeholder="e.g., Chief Okeke Chemist & Provision"
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
               />
+            </div>
+
+            {/* BUSINESS CATEGORY SELECTOR */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Village Business Category *</label>
+              <select
+                required
+                value={formData.category_id}
+                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                className="w-full text-xs p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium text-slate-800"
+              >
+                <option value="">-- Select Village Trade / Category --</option>
+                {categoriesList.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* LAZY-LOADED 4-TIER LOCATION CASCADING DROPDOWNS */}
@@ -314,7 +339,7 @@ export default function RegisterShopPage() {
                 required
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="e.g., Market Road, Opposite Civic Center"
+                placeholder="e.g., Market Square, Eke Ekwe"
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -372,13 +397,13 @@ export default function RegisterShopPage() {
 
           <div className="space-y-3 pt-3 border-t border-slate-100">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. Add Initial Products</h3>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. Add Initial Products / Services</h3>
               <button
                 type="button"
                 onClick={addProductRow}
                 className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700"
               >
-                + Add Another Product
+                + Add Another Item
               </button>
             </div>
 
@@ -387,7 +412,7 @@ export default function RegisterShopPage() {
                 <input
                   type="text"
                   required
-                  placeholder={`Product #${idx + 1} Name`}
+                  placeholder={`Item #${idx + 1} (e.g. Paracetamol / Garri / POS)`}
                   value={prod.name}
                   onChange={(e) => handleProductChange(idx, 'name', e.target.value)}
                   className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
@@ -412,15 +437,15 @@ export default function RegisterShopPage() {
             ))}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
-          >
-            {loading ? 'Registering Store...' : 'Complete Shop Registration'}
-          </button>
-        </form>
-      </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
+        >
+          {loading ? 'Registering Store...' : 'Complete Shop Registration'}
+        </button>
+      </form>
     </div>
-  );
+  </div>
+);
 }
