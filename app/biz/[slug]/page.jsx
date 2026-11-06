@@ -1,7 +1,7 @@
 import { query } from '@/lib/db';
 import { notFound } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
+import SafeImage from '@/components/SafeImage';
 import ShareButton from '@/components/ShareButton';
 
 // Fetch business data & categorized products server-side
@@ -17,6 +17,13 @@ async function getBusinessData(slug) {
       b.image_url,
       b.is_featured,
       b.is_verified,
+      (
+        SELECT c.icon_url 
+        FROM public.products pr 
+        JOIN public.categories c ON pr.category_id = c.id 
+        WHERE pr.business_id = b.id 
+        LIMIT 1
+      ) AS category_icon_url,
       t.name as town_name,
       t.state,
       t.lga as town_lga,
@@ -91,7 +98,7 @@ export default async function BusinessPage({ params }) {
   const adminWhatsAppNumber = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || '14165261826';
 
   return (
-    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-24">
+    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-40">
       {/* HEADER */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
         <Link
@@ -108,20 +115,17 @@ export default async function BusinessPage({ params }) {
         {/* HERO CARD */}
         <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
           <div className="relative h-48 w-full bg-slate-200">
-            <Image
-              src={
-                business.image_url && business.image_url.trim() !== ''
-                  ? business.image_url
-                  : '/uploads/placeholder-shop.jpg'
-              }
+            <SafeImage
+              src={business.image_url}
+              fallbackSrc={business.category_icon_url || '/uploads/placeholder-shop.jpg'}
               alt={business.name}
               fill
               sizes="(max-width: 768px) 100vw, 448px"
-              className="object-cover"
-              priority
+              className="h-48 w-full"
+              priority={true}
             />
             {business.is_verified && (
-              <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1">
+              <div className="absolute top-3 right-3 z-10 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1">
                 ✓ Verified Shop
               </div>
             )}
@@ -158,7 +162,7 @@ export default async function BusinessPage({ params }) {
               </a>
 
               <a
-                href={`https://wa.me/${business.whatsapp_number.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                href={`https://wa.me/${business.whatsapp_number?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
                   `Hello ${business.name}, I found your page on the CommunityShops Directory.`
                 )}`}
                 target="_blank"
@@ -225,8 +229,8 @@ export default async function BusinessPage({ params }) {
         </a>
       </main>
 
-      {/* SINGLE STICKY BOTTOM SHARE BAR */}
-      <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 z-40">
+      {/* STICKY BOTTOM SHARE BAR POSITIONED CLEAR ABOVE PWA INSTALL BANNER */}
+      <div className="fixed bottom-20 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 z-30 shadow-lg">
         <div className="max-w-md mx-auto">
           <ShareButton
             businessName={business.name}

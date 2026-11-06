@@ -341,12 +341,12 @@ export default async function SearchPage(props) {
                   key={item.id}
                   className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex gap-3 hover:border-emerald-300 transition"
                 >
-                  <SafeImage
-                    src={item.image_url}
-                    alt={item.product_name}
-                    className="h-20 w-20 rounded-xl shrink-0 border border-slate-100 object-cover"
-                    fill
-                  />
+<SafeImage
+  src={item.image_url}
+  alt={item.product_name}
+  fallbackSrc={item.category_icon_url || '/uploads/placeholder-shop.jpg'}
+  fill
+/>
 
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>

@@ -11,8 +11,11 @@ export default function SafeImage({
   height,
   className = '',
   sizes,
+  fallbackSrc = '/uploads/placeholder-shop.jpg',
 }) {
-  const [imgSrc, setImgSrc] = useState(src || '/uploads/placeholder-shop.jpg');
+  // Use provided src, or fallback placeholder
+  const initialSrc = src && src.trim() !== '' ? src : fallbackSrc;
+  const [imgSrc, setImgSrc] = useState(initialSrc);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -23,7 +26,7 @@ export default function SafeImage({
       } ${className}`}
     >
       <Image
-        src={hasError ? '/uploads/placeholder-shop.jpg' : imgSrc}
+        src={hasError ? fallbackSrc : imgSrc}
         alt={alt || 'Shop Image'}
         fill={fill}
         width={width}
@@ -33,7 +36,7 @@ export default function SafeImage({
         onLoad={() => setIsLoading(false)}
         onError={() => {
           setHasError(true);
-          setImgSrc('/uploads/placeholder-shop.jpg');
+          setImgSrc(fallbackSrc);
           setIsLoading(false);
         }}
         className={`transition-opacity duration-300 ${

@@ -33,7 +33,7 @@ async function getDirectoryData(stateParam, townParam) {
 
     const town = townRes.rows[0];
 
-    // 2. Fetch all active businesses registered under this town
+    // 2. Fetch active businesses registered under this town (safely pulling category icon via products)
     const bizSql = `
       SELECT 
         b.id,
@@ -45,6 +45,13 @@ async function getDirectoryData(stateParam, townParam) {
         b.image_url,
         b.is_featured,
         b.is_verified,
+        (
+          SELECT c.icon_url 
+          FROM public.products pr 
+          JOIN public.categories c ON pr.category_id = c.id 
+          WHERE pr.business_id = b.id 
+          LIMIT 1
+        ) AS category_icon_url,
         COALESCE(
           json_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '[]'
         ) as products_sample
@@ -184,12 +191,13 @@ export default async function RegionalDirectoryPage({ params }) {
                   className="block bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs hover:border-emerald-300 active:bg-slate-50 active:scale-[0.98] transition-all duration-150"
                 >
                   <div className="flex gap-3">
-                    {/* Zero-CLS Safe Image with Skeleton Pulse */}
+                    {/* Zero-CLS Safe Image with Category Fallback */}
                     <SafeImage
                       src={biz.image_url}
                       alt={biz.name}
-                      className="h-20 w-20 rounded-xl shrink-0 border border-slate-100"
+                      fallbackSrc={biz.category_icon_url || '/uploads/placeholder-shop.jpg'}
                       fill
+                      className="h-20 w-20 rounded-xl shrink-0 border border-slate-100 object-cover"
                     />
 
                     <div className="flex-1 min-w-0 flex flex-col justify-between">

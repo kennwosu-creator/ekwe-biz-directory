@@ -9,24 +9,24 @@ async function getHomePageData() {
   try {
     const activeTownsRes = await query(
       `SELECT 
-         t.id, 
-         t.name, 
-         t.slug, 
-         t.lga, 
-         t.state, 
-         t.district, 
-         t.sub_locality,
-         COUNT(b.id)::int AS shop_count
-       FROM public.towns t
-       JOIN public.businesses b ON b.town_id = t.id
-       WHERE t.is_active = true 
-         AND (b.status::text ILIKE 'active' OR b.status IS NULL)
-       GROUP BY t.id, t.name, t.slug, t.lga, t.state, t.district, t.sub_locality
-       ORDER BY 
-         CASE WHEN LOWER(t.district) = 'ekwe' OR LOWER(t.name) = 'ekwe' THEN 0 ELSE 1 END,
-         shop_count DESC, 
-         t.name ASC
-       LIMIT 12`
+          t.id, 
+          t.name, 
+          t.slug, 
+          t.lga, 
+          t.state, 
+          t.district, 
+          t.sub_locality,
+          COUNT(b.id)::int AS shop_count
+        FROM public.towns t
+        JOIN public.businesses b ON b.town_id = t.id
+        WHERE t.is_active = true 
+          AND (b.status::text ILIKE 'active' OR b.status IS NULL)
+        GROUP BY t.id, t.name, t.slug, t.lga, t.state, t.district, t.sub_locality
+        ORDER BY 
+          CASE WHEN LOWER(t.district) = 'ekwe' OR LOWER(t.name) = 'ekwe' THEN 0 ELSE 1 END,
+          shop_count DESC, 
+          t.name ASC
+        LIMIT 12`
     );
 
     let towns = [];
@@ -88,7 +88,7 @@ export default async function HomePage() {
   const { towns, categories, events } = await getHomePageData();
 
   return (
-    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-32">
+    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-64">
       {/* BRAND BANNER HEADER */}
       <section className="bg-emerald-950 text-white shadow-md">
         <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
@@ -311,6 +311,20 @@ export default async function HomePage() {
           </div>
         </section>
       </main>
+
+      {/* FOOTER SECTION PROPERLY CONTAINED & CLEARED */}
+      <footer className="mt-16 border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 space-y-3">
+        <p>© {new Date().getFullYear()} CommunityShops. Connecting local village trade.</p>
+        
+        {/* Admin & Management Quick Access Links */}
+        <div className="flex flex-wrap justify-center gap-4 text-[11px] font-semibold text-slate-600">
+          <Link href="/admin/businesses" className="hover:text-emerald-600 transition">🛡️ Merchants Admin</Link>
+          <span>•</span>
+          <Link href="/admin/agents" className="hover:text-emerald-600 transition">🎯 Agents Admin</Link>
+          <span>•</span>
+          <Link href="/admin/events" className="hover:text-emerald-600 transition">🎉 Events Admin</Link>
+        </div>
+      </footer>
     </div>
   );
 }

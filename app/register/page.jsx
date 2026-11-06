@@ -3,11 +3,55 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+// Helper function to resize and compress images client-side before upload
+async function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Export as lightweight compressed JPEG base64 string
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
 export default function RegisterShopPage() {
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsStatus, setGpsStatus] = useState('');
+
+  // Image compression UI state
+  const [imagePreview, setImagePreview] = useState(null);
+  const [compressing, setCompressing] = useState(false);
 
   // Dynamic dropdown lists loaded step-by-step
   const [statesList, setStatesList] = useState([]);
@@ -82,6 +126,25 @@ export default function RegisterShopPage() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  // Handle image upload with compression
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCompressing(true);
+    try {
+      // Automatically constrain dimensions to max 800x800 and compress to 70% quality JPEG
+      const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+      setImagePreview(compressedBase64);
+      setFormData((prev) => ({ ...prev, image_url: compressedBase64 }));
+    } catch (err) {
+      console.error('Image compression error:', err);
+      alert('Failed to process image. Please try another photo.');
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const handleStateChange = async (stateVal) => {
@@ -213,7 +276,7 @@ export default function RegisterShopPage() {
           <div className="text-4xl">🎉</div>
           <h2 className="text-lg font-bold text-slate-900">Shop Registered Successfully!</h2>
           <p className="text-xs text-slate-600">
-            <span className="font-bold text-slate-800">{formData.name}</span> is live on CommunityShops.
+            <span className="font-bold text-slate-800">{formData.name}</span> is live on CommunityShops with optimized image assets.
           </p>
 
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left text-xs space-y-1">
@@ -282,6 +345,32 @@ export default function RegisterShopPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* SHOP PHOTO UPLOAD & CLIENT-SIDE RESIZING SECTION */}
+            <div className="space-y-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+              <label className="block text-xs font-bold text-slate-800">Shop / Kiosk Photo (Optional)</label>
+              <p className="text-[10px] text-slate-500">Photos are automatically optimized and compressed to ensure fast mobile loading.</p>
+              
+              <div className="flex items-center gap-3">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Shop preview" className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0" />
+                ) : (
+                  <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 text-[10px] font-medium shrink-0">
+                    📸 No Photo
+                  </div>
+                )}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={compressing}
+                    className="w-full text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  />
+                  {compressing && <p className="text-[10px] text-emerald-600 font-medium mt-1">Compressing image...</p>}
+                </div>
+              </div>
             </div>
 
             {/* LOCATION CASCADING DROPDOWNS */}
@@ -473,10 +562,10 @@ export default function RegisterShopPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || compressing}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
           >
-            {loading ? 'Registering Store...' : 'Complete Shop Registration'}
+            {loading ? 'Registering Store...' : compressing ? 'Optimizing Image...' : 'Complete Shop Registration'}
           </button>
         </form>
       </div>

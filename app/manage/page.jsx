@@ -3,6 +3,45 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+// Helper function to resize and compress images client-side before upload
+async function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = (error) => reject(error);
+    };
+    reader.onerror = (error) => reject(error);
+  });
+}
+
 export default function OwnerManagePage() {
   const [step, setStep] = useState('LOGIN'); // 'LOGIN' | 'EDIT'
   const [phone, setPhone] = useState('');
@@ -14,6 +53,9 @@ export default function OwnerManagePage() {
   const [business, setBusiness] = useState(null);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
+  const [compressing, setCompressing] = useState(false);
   const [rawProducts, setRawProducts] = useState('');
   const [updateSuccess, setUpdateSuccess] = useState(false);
 
@@ -35,6 +77,8 @@ export default function OwnerManagePage() {
         setBusiness(json.business);
         setName(json.business.name);
         setAddress(json.business.address || '');
+        setImageUrl(json.business.image_url || '');
+        setImagePreview(json.business.image_url || '');
         setStep('EDIT');
       } else {
         setError(json.error || 'Invalid phone number or 4-digit PIN');
@@ -43,6 +87,24 @@ export default function OwnerManagePage() {
       setError('Connection failed. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Image Upload & Compression
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCompressing(true);
+    try {
+      const compressedBase64 = await compressImage(file, 800, 800, 0.7);
+      setImagePreview(compressedBase64);
+      setImageUrl(compressedBase64);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      alert('Failed to process image. Please try another photo.');
+    } finally {
+      setCompressing(false);
     }
   };
 
@@ -60,6 +122,7 @@ export default function OwnerManagePage() {
           id: business.id,
           name,
           address,
+          image_url: imageUrl,
           raw_products: rawProducts,
         }),
       });
@@ -187,6 +250,30 @@ export default function OwnerManagePage() {
                 />
               </div>
 
+              {/* SHOP PHOTO UPLOAD & COMPRESSION SECTION */}
+              <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label className="block text-xs font-semibold text-slate-600">Shop / Kiosk Photo</label>
+                <div className="flex items-center gap-3">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Shop preview" className="w-14 h-14 rounded-lg object-cover border border-slate-200 shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-[10px] shrink-0">
+                      No Photo
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      disabled={compressing}
+                      className="w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                    />
+                    {compressing && <p className="text-[10px] text-emerald-600 font-medium mt-1">Optimizing image...</p>}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Add / Replace Products & Items
@@ -206,10 +293,10 @@ export default function OwnerManagePage() {
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition active:scale-[0.98]"
+                  disabled={loading || compressing}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition active:scale-[0.98] disabled:opacity-50"
                 >
-                  {loading ? 'Saving Changes...' : 'Save & Publish Page'}
+                  {loading ? 'Saving Changes...' : compressing ? 'Optimizing Image...' : 'Save & Publish Page'}
                 </button>
               </div>
             </form>
