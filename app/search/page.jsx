@@ -23,7 +23,7 @@ async function getFilterOptions() {
 }
 
 // =========================================================================
-// 🔹 SCHEMA-COMPLIANT UNIFIED SEARCH BACKEND WITH CATEGORY FILTERING
+// 🔹 SCHEMA-COMPLIANT UNIFIED SEARCH BACKEND (GROUP BY ORDER BY FIXED)
 // =========================================================================
 async function getSearchResults(params) {
   const { q, town: townSlug, category: categoryId } = params;
@@ -79,7 +79,7 @@ async function getSearchResults(params) {
     }
 
     if (categoryId && categoryId.trim()) {
-      productSql += ` AND (p.category_id = $${pIdx}::uuid OR b.category_id = $${pIdx}::uuid)`;
+      productSql += ` AND p.category_id = $${pIdx}::uuid`;
       productParams.push(categoryId.trim());
       pIdx++;
     }
@@ -122,7 +122,7 @@ async function getSearchResults(params) {
       }
 
       if (categoryId && categoryId.trim()) {
-        fallbackSql += ` AND (p.category_id = $${fIdx}::uuid OR b.category_id = $${fIdx}::uuid)`;
+        fallbackSql += ` AND p.category_id = $${fIdx}::uuid`;
         fallbackParams.push(categoryId.trim());
         fIdx++;
       }
@@ -135,7 +135,7 @@ async function getSearchResults(params) {
       }
     }
 
-    // 4. SEARCH MATCHING SHOPS DIRECTLY
+    // 4. SEARCH MATCHING SHOPS DIRECTLY (GROUP BY instead of DISTINCT)
     let bizSql = `
       SELECT 
         b.id,
@@ -152,8 +152,14 @@ async function getSearchResults(params) {
         t.sub_locality AS town_sub_locality
       FROM public.businesses b
       JOIN public.towns t ON b.town_id = t.id
-      WHERE (b.status::text ILIKE 'active' OR b.status IS NULL)
     `;
+
+    if (categoryId && categoryId.trim()) {
+      bizSql += ` JOIN public.products p ON p.business_id = b.id `;
+    }
+
+    bizSql += ` WHERE (b.status::text ILIKE 'active' OR b.status IS NULL) `;
+
     const bizParams = [];
     let bIdx = 1;
 
@@ -170,12 +176,16 @@ async function getSearchResults(params) {
     }
 
     if (categoryId && categoryId.trim()) {
-      bizSql += ` AND b.category_id = $${bIdx}::uuid`;
+      bizSql += ` AND p.category_id = $${bIdx}::uuid`;
       bizParams.push(categoryId.trim());
       bIdx++;
     }
 
-    bizSql += ` ORDER BY b.is_featured DESC, b.created_at DESC LIMIT 20;`;
+    bizSql += ` 
+      GROUP BY b.id, t.name, t.district, t.sub_locality
+      ORDER BY MAX(b.is_featured::int) DESC, MAX(b.created_at) DESC 
+      LIMIT 20;
+    `;
     const bizRes = await query(bizSql, bizParams);
 
     // 5. SEARCH UPCOMING EVENTS
@@ -242,7 +252,7 @@ export default async function SearchPage(props) {
   const hasSearched = Boolean(initialParams.q || initialParams.town || initialParams.category);
 
   return (
-    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
+    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-32">
       {/* HEADER BAR */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
         <Link href="/" className="text-xs font-bold text-slate-700 hover:text-emerald-600 transition flex items-center gap-1">

@@ -6,6 +6,8 @@ import Link from 'next/link';
 export default function RegisterShopPage() {
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState('');
 
   // Dynamic dropdown lists loaded step-by-step
   const [statesList, setStatesList] = useState([]);
@@ -29,6 +31,8 @@ export default function RegisterShopPage() {
     category_id: '',
     town_id: '',
     address: '',
+    latitude: '',
+    longitude: '',
     phone: '',
     whatsapp_number: '',
     pin: '',
@@ -37,7 +41,7 @@ export default function RegisterShopPage() {
     products: [{ name: '', price: '' }],
   });
 
-  // Step 1: Fetch States & Categories on component mount
+  // Fetch States & Categories on component mount
   useEffect(() => {
     async function loadInitialOptions() {
       try {
@@ -52,7 +56,34 @@ export default function RegisterShopPage() {
     loadInitialOptions();
   }, []);
 
-  // Step 2: Handle State change -> Fetch LGAs dynamically
+  // Capture GPS Location helper
+  const handleCaptureGPS = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsStatus('Acquiring satellite lock...');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6),
+        }));
+        setGpsLoading(false);
+        setGpsStatus('✓ GPS Coordinates Captured Successfully!');
+      },
+      (error) => {
+        console.error('GPS Error:', error);
+        setGpsLoading(false);
+        setGpsStatus('❌ Unable to retrieve location. Please check device permissions.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleStateChange = async (stateVal) => {
     setSelectedState(stateVal);
     setSelectedLga('');
@@ -76,7 +107,6 @@ export default function RegisterShopPage() {
     }
   };
 
-  // Step 3: Handle LGA change -> Fetch Districts dynamically
   const handleLgaChange = async (lgaVal) => {
     setSelectedLga(lgaVal);
     setSelectedDistrict('');
@@ -100,7 +130,6 @@ export default function RegisterShopPage() {
     }
   };
 
-  // Step 4: Handle District change -> Fetch Villages/Kindreds dynamically
   const handleDistrictChange = async (districtVal) => {
     setSelectedDistrict(districtVal);
     setVillagesList([]);
@@ -215,7 +244,7 @@ export default function RegisterShopPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-100 py-8 pb-32 px-4 font-sans text-slate-800">
       <div className="max-w-md mx-auto bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
         <div>
           <h1 className="text-lg font-bold text-slate-900">Register Your Business</h1>
@@ -238,7 +267,6 @@ export default function RegisterShopPage() {
               />
             </div>
 
-            {/* BUSINESS CATEGORY SELECTOR */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Village Business Category *</label>
               <select
@@ -256,13 +284,12 @@ export default function RegisterShopPage() {
               </select>
             </div>
 
-            {/* LAZY-LOADED 4-TIER LOCATION CASCADING DROPDOWNS */}
+            {/* LOCATION CASCADING DROPDOWNS */}
             <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
               <label className="block text-xs font-bold text-slate-800">
                 Select Location (State / LGA / District / Village) *
               </label>
 
-              {/* 1. State Select */}
               <select
                 required
                 value={selectedState}
@@ -271,13 +298,10 @@ export default function RegisterShopPage() {
               >
                 <option value="">-- 1. Select State --</option>
                 {statesList.map((st) => (
-                  <option key={st} value={st}>
-                    {st} State
-                  </option>
+                  <option key={st} value={st}>{st} State</option>
                 ))}
               </select>
 
-              {/* 2. LGA Select */}
               <select
                 required
                 disabled={!selectedState || loadingLgas}
@@ -285,17 +309,12 @@ export default function RegisterShopPage() {
                 onChange={(e) => handleLgaChange(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium disabled:opacity-50"
               >
-                <option value="">
-                  {loadingLgas ? 'Loading LGAs...' : '-- 2. Select Local Govt (LGA) --'}
-                </option>
+                <option value="">{loadingLgas ? 'Loading LGAs...' : '-- 2. Select Local Govt (LGA) --'}</option>
                 {lgasList.map((lga) => (
-                  <option key={lga} value={lga}>
-                    {lga} LGA
-                  </option>
+                  <option key={lga} value={lga}>{lga} LGA</option>
                 ))}
               </select>
 
-              {/* 3. Major District / Town Select */}
               <select
                 required
                 disabled={!selectedLga || loadingDistricts}
@@ -303,17 +322,12 @@ export default function RegisterShopPage() {
                 onChange={(e) => handleDistrictChange(e.target.value)}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-semibold text-slate-800 disabled:opacity-50"
               >
-                <option value="">
-                  {loadingDistricts ? 'Loading Districts...' : '-- 3. Select Major Town / District --'}
-                </option>
+                <option value="">{loadingDistricts ? 'Loading Districts...' : '-- 3. Select Major Town / District --'}</option>
                 {districtsList.map((dist) => (
-                  <option key={dist} value={dist}>
-                    {dist}
-                  </option>
+                  <option key={dist} value={dist}>{dist}</option>
                 ))}
               </select>
 
-              {/* 4. Village / Settlement / Kindred Select */}
               <select
                 required
                 disabled={!selectedDistrict || loadingVillages}
@@ -321,27 +335,47 @@ export default function RegisterShopPage() {
                 onChange={(e) => setFormData({ ...formData, town_id: e.target.value })}
                 className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-bold text-emerald-800 disabled:opacity-50"
               >
-                <option value="">
-                  {loadingVillages ? 'Loading Villages...' : '-- 4. Select Village / Settlement --'}
-                </option>
+                <option value="">{loadingVillages ? 'Loading Villages...' : '-- 4. Select Village / Settlement --'}</option>
                 {villagesList.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} {v.sub_locality ? `(${v.sub_locality})` : ''}
-                  </option>
+                  <option key={v.id} value={v.id}>{v.name} {v.sub_locality ? `(${v.sub_locality})` : ''}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Physical Address *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Physical Address / Landmark *</label>
               <input
                 type="text"
                 required
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="e.g., Market Square, Eke Ekwe"
+                placeholder="e.g., Market Square, Opposite Eke Market Town Hall"
                 className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
               />
+            </div>
+
+            {/* GPS CAPTURE BUTTON FOR KIOSKS WITHOUT ADDRESSES */}
+            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-emerald-900">📍 Kiosk GPS Coordinates</span>
+                  <p className="text-[10px] text-emerald-700">Essential for kiosks without formal street addresses.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCaptureGPS}
+                  disabled={gpsLoading}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] px-3 py-2 rounded-xl transition shadow-xs disabled:opacity-50 whitespace-nowrap"
+                >
+                  {gpsLoading ? 'Locating...' : '📌 Capture GPS'}
+                </button>
+              </div>
+              {gpsStatus && <p className="text-[11px] font-medium text-emerald-800">{gpsStatus}</p>}
+              {formData.latitude && formData.longitude && (
+                <div className="text-[10px] bg-white p-2 rounded-lg border border-emerald-200 font-mono text-slate-600">
+                  Lat: {formData.latitude}, Lng: {formData.longitude}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -412,7 +446,7 @@ export default function RegisterShopPage() {
                 <input
                   type="text"
                   required
-                  placeholder={`Item #${idx + 1} (e.g. Paracetamol / Garri / POS)`}
+                  placeholder={`Item #${idx + 1} Name`}
                   value={prod.name}
                   onChange={(e) => handleProductChange(idx, 'name', e.target.value)}
                   className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
@@ -437,15 +471,15 @@ export default function RegisterShopPage() {
             ))}
           </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
-        >
-          {loading ? 'Registering Store...' : 'Complete Shop Registration'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
+          >
+            {loading ? 'Registering Store...' : 'Complete Shop Registration'}
+          </button>
+        </form>
+      </div>
     </div>
-  </div>
-);
+  );
 }

@@ -3,10 +3,10 @@ export const dynamic = 'force-dynamic';
 import { query } from '@/lib/db';
 import Link from 'next/link';
 import Image from 'next/image';
+import GpsShareWidget from '@/components/GpsShareWidget';
 
 async function getHomePageData() {
   try {
-    // 1. Fetch communities with active shops first (Ekwe pinned to top)
     const activeTownsRes = await query(
       `SELECT 
          t.id, 
@@ -33,7 +33,6 @@ async function getHomePageData() {
     if (activeTownsRes.rows.length > 0) {
       towns = activeTownsRes.rows;
     } else {
-      // 2. Fallback if database is fresh: Show major primary district hubs only (Ekwe, Umudibi, etc.)
       const fallbackRes = await query(
         `SELECT id, name, slug, lga, state, district, sub_locality, 0 AS shop_count
          FROM public.towns
@@ -52,18 +51,28 @@ async function getHomePageData() {
       towns = fallbackRes.rows;
     }
 
-    // 3. Fetch village-friendly categories for quick browsing
     const categoriesRes = await query(
       'SELECT id, name, icon_name FROM public.categories ORDER BY name ASC'
+    );
+
+    // Prioritize sponsored events to the top
+    const eventsRes = await query(
+      `SELECT e.id, e.title, e.event_type, e.event_date, e.venue, e.time_label, e.whatsapp_contact, e.is_sponsored, t.name AS town_name
+       FROM public.events e
+       JOIN public.towns t ON e.town_id = t.id
+       WHERE e.event_date >= CURRENT_DATE
+       ORDER BY e.is_sponsored DESC, e.event_date ASC
+       LIMIT 2`
     );
 
     return {
       towns,
       categories: categoriesRes?.rows || [],
+      events: eventsRes?.rows || [],
     };
   } catch (error) {
     console.error('Error fetching home page data:', error);
-    return { towns: [], categories: [] };
+    return { towns: [], categories: [], events: [] };
   }
 }
 
@@ -76,13 +85,12 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const { towns, categories } = await getHomePageData();
+  const { towns, categories, events } = await getHomePageData();
 
   return (
-    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
+    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-32">
       {/* BRAND BANNER HEADER */}
       <section className="bg-emerald-950 text-white shadow-md">
-        {/* BRAND TITLE BAR */}
         <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
           <div className="max-w-md mx-auto flex items-center justify-center gap-2">
             <span className="text-xl">🏪</span>
@@ -95,7 +103,6 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* HERO IMAGE CONTAINER */}
         <div className="relative w-full h-56 md:h-64 bg-emerald-950 overflow-hidden">
           <Image
             src="/images/village-kiosk.jpg"
@@ -109,13 +116,12 @@ export default async function HomePage() {
         </div>
 
         {/* FLOATING TAGLINE & SEARCH CARD */}
-        <div className="max-w-md mx-auto px-4 -mt-10 relative z-10 pb-6 text-center">
+        <div className="max-w-md mx-auto px-4 -mt-10 relative z-10 pb-6 text-center space-y-3">
           <div className="bg-emerald-900/95 backdrop-blur-md border border-emerald-800 rounded-2xl p-4 shadow-lg space-y-3">
             <p className="text-xs text-emerald-100 leading-relaxed font-medium">
               Find verified shops, markets, and service providers directly in your village. Contact traders directly on WhatsApp!
             </p>
 
-            {/* GLOBAL SEARCH FORM */}
             <form action="/search" method="GET" className="relative">
               <input
                 type="text"
@@ -126,6 +132,8 @@ export default async function HomePage() {
               <span className="absolute left-3 top-3.5 text-slate-400 text-xs">🔍</span>
             </form>
           </div>
+
+          <GpsShareWidget />
         </div>
       </section>
 
@@ -151,7 +159,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* ACTIVE COMMUNITIES & TOWNS */}
+        {/* 1. ACTIVE COMMUNITIES & TOWNS (DIRECTORIES FIRST) */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
@@ -199,11 +207,72 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* 2. SIDE-BY-SIDE 2-COLUMN EVENTS & OBITUARIES SECTION */}
+        {events.length > 0 && (
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+                🎉 UPCOMING EVENTS & OBITUARIES
+              </h2>
+              <div className="flex items-center gap-2 shrink-0">
+                <Link href="/events/register" className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700">
+                  + Publish
+                </Link>
+                <Link href="/events" className="text-[11px] font-bold text-slate-400 hover:underline">
+                  View All →
+                </Link>
+              </div>
+            </div>
+
+            {/* SIDE-BY-SIDE GRID LAYOUT */}
+            <div className="grid grid-cols-2 gap-2">
+              {events.map((evt) => (
+                <Link
+                  key={evt.id}
+                  href={`/events/${evt.id}`}
+                  className={`rounded-2xl p-3 shadow-xs space-y-1.5 transition border flex flex-col justify-between ${
+                    evt.is_sponsored 
+                      ? 'bg-amber-950 text-amber-100 border-amber-500/80 hover:border-amber-400 shadow-sm' 
+                      : 'bg-emerald-900 text-white border-emerald-800 hover:border-emerald-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
+                      evt.is_sponsored ? 'bg-amber-400 text-amber-950' : 'bg-emerald-700 text-emerald-100'
+                    }`}>
+                      {new Date(evt.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                    {evt.is_sponsored ? (
+                      <span className="bg-amber-500/30 text-amber-300 text-[8px] font-bold px-1.5 py-0.5 rounded">⭐ Featured</span>
+                    ) : (
+                      <span className="text-[9px] text-emerald-300 font-medium truncate max-w-[70px]">📍 {evt.town_name}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold truncate">{evt.title}</h3>
+                    <p className={`text-[10px] truncate mt-0.5 ${evt.is_sponsored ? 'text-amber-200' : 'text-emerald-200'}`}>
+                      {evt.venue}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* PORTALS & TOOLS */}
         <section className="space-y-3">
-          <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
-            PORTALS & TOOLS
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
+              PORTALS & TOOLS
+            </h2>
+            <Link
+              href="/agents"
+              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition"
+            >
+              Field Agent Hub →
+            </Link>
+          </div>
 
           <div className="space-y-2.5">
             <Link
@@ -241,16 +310,6 @@ export default async function HomePage() {
             </Link>
           </div>
         </section>
-
-        {/* DISCRETE FOOTER LINK FOR AGENTS */}
-        <div className="text-center pt-2">
-          <Link
-            href="/agents"
-            className="text-[11px] font-semibold text-slate-400 hover:text-emerald-700 transition"
-          >
-            Field Agent Hub →
-          </Link>
-        </div>
       </main>
     </div>
   );
