@@ -44,7 +44,7 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="bg-slate-100 text-slate-800 antialiased min-h-screen font-sans">
+      <body className="bg-slate-100 text-slate-800 antialiased min-h-screen font-sans pb-24 relative">
         {children}
         <InstallPrompt />
       </body>

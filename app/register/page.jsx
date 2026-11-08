@@ -208,278 +208,358 @@ export default function RegisterShopPage() {
     );
 
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans text-slate-800">
-        <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-lg text-center space-y-4 border border-slate-200">
-          <div className="text-4xl">🎉</div>
-          <h2 className="text-lg font-bold text-slate-900">Shop Registered Successfully!</h2>
-          <p className="text-xs text-slate-600">
-            <span className="font-bold text-slate-800">{formData.name}</span> is live on CommunityShops.
-          </p>
+      <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans text-slate-800 pb-16">
+        <div>
+          {/* HEADER BAR */}
+          <header className="bg-emerald-950 text-white shadow-md">
+            <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
+              <div className="max-w-md mx-auto flex items-center justify-between">
+                <Link href="/" className="text-xs font-bold text-emerald-300 hover:text-white transition flex items-center gap-1.5">
+                  <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+                  <span>← Back to Home</span>
+                </Link>
+                <div className="flex items-center gap-1.5">
+                  <img src="/logo.png" alt="CommunityShops Logo" className="w-5 h-5 object-contain" />
+                  <span className="text-sm font-extrabold tracking-tight">
+                    Community<span className="text-emerald-400">Shops</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </header>
 
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left text-xs space-y-1">
-            <p><span className="font-semibold text-slate-500">Store URL:</span> /biz/{successData.slug}</p>
-            <p><span className="font-semibold text-slate-500">Security PIN:</span> {formData.pin}</p>
-          </div>
+          <div className="flex items-center justify-center p-4 pt-12">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-lg text-center space-y-4 border border-slate-200">
+              <div className="text-4xl">🎉</div>
+              <h2 className="text-lg font-bold text-slate-900">Shop Registered Successfully!</h2>
+              <p className="text-xs text-slate-600">
+                <span className="font-bold text-slate-800">{formData.name}</span> is live on CommunityShops.
+              </p>
 
-          <div className="space-y-2 pt-2">
-            <a
-              href={`https://wa.me/14165261826?text=${waText}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 rounded-xl transition"
-            >
-              💬 Send Confirmation via WhatsApp
-            </a>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left text-xs space-y-1">
+                <p><span className="font-semibold text-slate-500">Store URL:</span> /biz/{successData.slug}</p>
+                <p><span className="font-semibold text-slate-500">Security PIN:</span> {formData.pin}</p>
+              </div>
 
-            <Link
-              href={`/biz/${successData.slug}`}
-              className="block w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-xl transition"
-            >
-              View Shop Live
-            </Link>
+              <div className="space-y-2 pt-2">
+                <a
+                  href={`https://wa.me/14165261826?text=${waText}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-3 rounded-xl transition"
+                >
+                  💬 Send Confirmation via WhatsApp
+                </a>
+
+                <Link
+                  href={`/biz/${successData.slug}`}
+                  className="block w-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-xl transition"
+                >
+                  View Shop Live
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* FOOTER */}
+        <footer className="mt-16 border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 space-y-3">
+          <p>© {new Date().getFullYear()} CommunityShops. Connecting local village trade.</p>
+          <div className="flex flex-wrap justify-center gap-4 text-[11px] font-semibold text-slate-600">
+            <Link href="/agents/portal" className="hover:text-emerald-600 transition">🎯 Field Agent Portal</Link>
+            <span>•</span>
+            <Link href="/admin/businesses" className="hover:text-emerald-600 transition">🛡️ Merchants Admin</Link>
+            <span>•</span>
+            <Link href="/admin/agents" className="hover:text-emerald-600 transition">🎯 Agents Admin</Link>
+            <span>•</span>
+            <Link href="/admin/events" className="hover:text-emerald-600 transition">🎉 Events Admin</Link>
+            <span>•</span>
+            <Link href="/personals" className="hover:text-emerald-600 transition">📜 Personals</Link>
+          </div>
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 pb-32 px-4 font-sans text-slate-800">
-      <div className="max-w-md mx-auto bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900">Register Your Business</h1>
-          <p className="text-xs text-slate-500">Join CommunityShops directory in under 2 minutes.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">1. Shop Information</h3>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Business / Shop Name *</label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Chief Okeke Chemist & Provision"
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Village Business Category *</label>
-              <select
-                required
-                value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium text-slate-800"
-              >
-                <option value="">-- Select Village Trade / Category --</option>
-                {categoriesList.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* LOCATION CASCADING DROPDOWNS */}
-            <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-              <label className="block text-xs font-bold text-slate-800">
-                Select Location (State / LGA / District / Village) *
-              </label>
-
-              <select
-                required
-                value={selectedState}
-                onChange={(e) => handleStateChange(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium"
-              >
-                <option value="">-- 1. Select State --</option>
-                {statesList.map((st) => (
-                  <option key={st} value={st}>{st} State</option>
-                ))}
-              </select>
-
-              <select
-                required
-                disabled={!selectedState || loadingLgas}
-                value={selectedLga}
-                onChange={(e) => handleLgaChange(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium disabled:opacity-50"
-              >
-                <option value="">{loadingLgas ? 'Loading LGAs...' : '-- 2. Select Local Govt (LGA) --'}</option>
-                {lgasList.map((lga) => (
-                  <option key={lga} value={lga}>{lga} LGA</option>
-                ))}
-              </select>
-
-              <select
-                required
-                disabled={!selectedLga || loadingDistricts}
-                value={selectedDistrict}
-                onChange={(e) => handleDistrictChange(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-semibold text-slate-800 disabled:opacity-50"
-              >
-                <option value="">{loadingDistricts ? 'Loading Districts...' : '-- 3. Select Major Town / District --'}</option>
-                {districtsList.map((dist) => (
-                  <option key={dist} value={dist}>{dist}</option>
-                ))}
-              </select>
-
-              <select
-                required
-                disabled={!selectedDistrict || loadingVillages}
-                value={formData.town_id}
-                onChange={(e) => setFormData({ ...formData, town_id: e.target.value })}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-bold text-emerald-800 disabled:opacity-50"
-              >
-                <option value="">{loadingVillages ? 'Loading Villages...' : '-- 4. Select Village / Settlement --'}</option>
-                {villagesList.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name} {v.sub_locality ? `(${v.sub_locality})` : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Physical Address / Landmark *</label>
-              <input
-                type="text"
-                required
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="e.g., Market Square, Opposite Eke Market Town Hall"
-                className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-
-            {/* GPS CAPTURE BUTTON FOR KIOSKS WITHOUT ADDRESSES */}
-            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-emerald-900">📍 Kiosk GPS Coordinates</span>
-                  <p className="text-[10px] text-emerald-700">Essential for kiosks without formal street addresses.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCaptureGPS}
-                  disabled={gpsLoading}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] px-3 py-2 rounded-xl transition shadow-xs disabled:opacity-50 whitespace-nowrap"
-                >
-                  {gpsLoading ? 'Locating...' : '📌 Capture GPS'}
-                </button>
-              </div>
-              {gpsStatus && <p className="text-[11px] font-medium text-emerald-800">{gpsStatus}</p>}
-              {formData.latitude && formData.longitude && (
-                <div className="text-[10px] bg-white p-2 rounded-lg border border-emerald-200 font-mono text-slate-600">
-                  Lat: {formData.latitude}, Lng: {formData.longitude}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="08030000000"
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">WhatsApp No. *</label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.whatsapp_number}
-                  onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-                  placeholder="2348030000000"
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">4-Digit Security PIN *</label>
-                <input
-                  type="password"
-                  maxLength={4}
-                  required
-                  value={formData.pin}
-                  onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
-                  placeholder="1234"
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 text-center tracking-widest font-bold"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Agent Code (Optional)</label>
-                <input
-                  type="text"
-                  value={formData.agent_code}
-                  onChange={(e) => setFormData({ ...formData, agent_code: e.target.value })}
-                  placeholder="AG-101"
-                  className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                />
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-between font-sans text-slate-800 pb-16">
+      <div>
+        {/* HEADER BAR */}
+        <header className="bg-emerald-950 text-white shadow-md">
+          <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
+            <div className="max-w-md mx-auto flex items-center justify-between">
+              <Link href="/" className="text-xs font-bold text-emerald-300 hover:text-white transition flex items-center gap-1.5">
+                <img src="/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+                <span>← Back to Home</span>
+              </Link>
+              <div className="flex items-center gap-1.5">
+                <img src="/logo.png" alt="CommunityShops Logo" className="w-5 h-5 object-contain" />
+                <span className="text-sm font-extrabold tracking-tight">
+                  Community<span className="text-emerald-400">Shops</span>
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. Add Initial Products / Services</h3>
-              <button
-                type="button"
-                onClick={addProductRow}
-                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700"
-              >
-                + Add Another Item
-              </button>
-            </div>
+          <div className="max-w-md mx-auto px-4 py-6 text-center space-y-1">
+            <h1 className="text-lg font-black uppercase tracking-wider text-white">
+              Register Your Business
+            </h1>
+            <p className="text-xs text-emerald-200">
+              Join CommunityShops directory in under 2 minutes.
+            </p>
+          </div>
+        </header>
 
-            {formData.products.map((prod, idx) => (
-              <div key={idx} className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  required
-                  placeholder={`Item #${idx + 1} Name`}
-                  value={prod.name}
-                  onChange={(e) => handleProductChange(idx, 'name', e.target.value)}
-                  className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Price (₦)"
-                  value={prod.price}
-                  onChange={(e) => handleProductChange(idx, 'price', e.target.value)}
-                  className="w-24 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
-                />
-                {formData.products.length > 1 && (
+        <main className="max-w-md mx-auto px-4 pt-6">
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">1. Shop Information</h3>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Business / Shop Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., Chief Okeke Chemist & Provision"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Village Business Category *</label>
+                  <select
+                    required
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium text-slate-800"
+                  >
+                    <option value="">-- Select Village Trade / Category --</option>
+                    {categoriesList.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* LOCATION CASCADING DROPDOWNS */}
+                <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Select Location (State / LGA / District / Village) *
+                  </label>
+
+                  <select
+                    required
+                    value={selectedState}
+                    onChange={(e) => handleStateChange(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium"
+                  >
+                    <option value="">-- 1. Select State --</option>
+                    {statesList.map((st) => (
+                      <option key={st} value={st}>{st} State</option>
+                    ))}
+                  </select>
+
+                  <select
+                    required
+                    disabled={!selectedState || loadingLgas}
+                    value={selectedLga}
+                    onChange={(e) => handleLgaChange(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-medium disabled:opacity-50"
+                  >
+                    <option value="">{loadingLgas ? 'Loading LGAs...' : '-- 2. Select Local Govt (LGA) --'}</option>
+                    {lgasList.map((lga) => (
+                      <option key={lga} value={lga}>{lga} LGA</option>
+                    ))}
+                  </select>
+
+                  <select
+                    required
+                    disabled={!selectedLga || loadingDistricts}
+                    value={selectedDistrict}
+                    onChange={(e) => handleDistrictChange(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-semibold text-slate-800 disabled:opacity-50"
+                  >
+                    <option value="">{loadingDistricts ? 'Loading Districts...' : '-- 3. Select Major Town / District --'}</option>
+                    {districtsList.map((dist) => (
+                      <option key={dist} value={dist}>{dist}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    required
+                    disabled={!selectedDistrict || loadingVillages}
+                    value={formData.town_id}
+                    onChange={(e) => setFormData({ ...formData, town_id: e.target.value })}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-emerald-500 font-bold text-emerald-800 disabled:opacity-50"
+                  >
+                    <option value="">{loadingVillages ? 'Loading Villages...' : '-- 4. Select Village / Settlement --'}</option>
+                    {villagesList.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name} {v.sub_locality ? `(${v.sub_locality})` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Physical Address / Landmark *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="e.g., Market Square, Opposite Eke Market Town Hall"
+                    className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                {/* GPS CAPTURE BUTTON FOR KIOSKS WITHOUT ADDRESSES */}
+                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900">📍 Kiosk GPS Coordinates</span>
+                      <p className="text-[10px] text-emerald-700">Essential for kiosks without formal street addresses.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCaptureGPS}
+                      disabled={gpsLoading}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] px-3 py-2 rounded-xl transition shadow-xs disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {gpsLoading ? 'Locating...' : '📌 Capture GPS'}
+                    </button>
+                  </div>
+                  {gpsStatus && <p className="text-[11px] font-medium text-emerald-800">{gpsStatus}</p>}
+                  {formData.latitude && formData.longitude && (
+                    <div className="text-[10px] bg-white p-2 rounded-lg border border-emerald-200 font-mono text-slate-600">
+                      Lat: {formData.latitude}, Lng: {formData.longitude}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="08030000000"
+                      className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">WhatsApp No. *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.whatsapp_number}
+                      onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                      placeholder="2348030000000"
+                      className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">4-Digit Security PIN *</label>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      required
+                      value={formData.pin}
+                      onChange={(e) => setFormData({ ...formData, pin: e.target.value })}
+                      placeholder="1234"
+                      className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 text-center tracking-widest font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Agent Code (Optional)</label>
+                    <input
+                      type="text"
+                      value={formData.agent_code}
+                      onChange={(e) => setFormData({ ...formData, agent_code: e.target.value })}
+                      placeholder="AG-101"
+                      className="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. Add Initial Products / Services</h3>
                   <button
                     type="button"
-                    onClick={() => removeProductRow(idx)}
-                    className="text-red-500 text-xs px-1 font-bold"
+                    onClick={addProductRow}
+                    className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700"
                   >
-                    ✕
+                    + Add Another Item
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
-          >
-            {loading ? 'Registering Store...' : 'Complete Shop Registration'}
-          </button>
-        </form>
+                {formData.products.map((prod, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      required
+                      placeholder={`Item #${idx + 1} Name`}
+                      value={prod.name}
+                      onChange={(e) => handleProductChange(idx, 'name', e.target.value)}
+                      className="flex-1 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price (₦)"
+                      value={prod.price}
+                      onChange={(e) => handleProductChange(idx, 'price', e.target.value)}
+                      className="w-24 text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500"
+                    />
+                    {formData.products.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeProductRow(idx)}
+                        className="text-red-500 text-xs px-1 font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3.5 rounded-xl transition shadow-sm mt-4 disabled:opacity-50"
+              >
+                {loading ? 'Registering Store...' : 'Complete Shop Registration'}
+              </button>
+            </form>
+          </div>
+        </main>
       </div>
+
+      {/* FOOTER */}
+      <footer className="mt-16 border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 space-y-3">
+        <p>© {new Date().getFullYear()} CommunityShops. Connecting local village trade.</p>
+        <div className="flex flex-wrap justify-center gap-4 text-[11px] font-semibold text-slate-600">
+          <Link href="/agents/portal" className="hover:text-emerald-600 transition">🎯 Field Agent Portal</Link>
+          <span>•</span>
+          <Link href="/admin/businesses" className="hover:text-emerald-600 transition">🛡️ Merchants Admin</Link>
+          <span>•</span>
+          <Link href="/admin/agents" className="hover:text-emerald-600 transition">🎯 Agents Admin</Link>
+          <span>•</span>
+          <Link href="/admin/events" className="hover:text-emerald-600 transition">🎉 Events Admin</Link>
+          <span>•</span>
+          <Link href="/personals" className="hover:text-emerald-600 transition">📜 Personals</Link>
+        </div>
+      </footer>
     </div>
   );
 }

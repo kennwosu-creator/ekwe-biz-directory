@@ -93,7 +93,7 @@ export default async function HomePage() {
       <section className="bg-emerald-950 text-white shadow-md">
         <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
           <div className="max-w-md mx-auto flex items-center justify-center gap-2">
-            <span className="text-xl">🏪</span>
+            <img src="/logo.png" alt="CommunityShops Logo" className="w-6 h-6 object-contain" />
             <h1 className="text-base font-extrabold tracking-tight">
               Community<span className="text-emerald-400">Shops</span>
             </h1>
@@ -160,23 +160,34 @@ export default async function HomePage() {
       </section>
 
       <main className="max-w-md mx-auto px-4 pt-4 space-y-6">
-        {/* VILLAGE CATEGORIES QUICK-BROWSE BAR */}
+        {/* VILLAGE CATEGORIES QUICK-BROWSE BAR WITH EMOJI FALLBACK MAP */}
         {categories.length > 0 && (
           <section className="space-y-2.5">
             <h2 className="text-xs font-bold text-slate-500 tracking-wider uppercase">
               BROWSE VILLAGE TRADES
             </h2>
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {categories.map((cat) => (
-                <Link
-                  key={cat.id}
-                  href={`/search?category=${cat.id}`}
-                  className="bg-white border border-slate-200/90 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 text-[11px] font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap shadow-2xs transition active:scale-95 flex items-center gap-1.5 shrink-0"
-                >
-                  <span>🛍️</span>
-                  <span>{cat.name}</span>
-                </Link>
-              ))}
+              {categories.map((cat) => {
+                const nameLower = (cat.name || '').toLowerCase();
+                let emoji = '🛍️';
+                if (nameLower.includes('pharm') || nameLower.includes('chemist')) emoji = '💊';
+                else if (nameLower.includes('hosp') || nameLower.includes('hotel')) emoji = '🏨';
+                else if (nameLower.includes('finan') || nameLower.includes('pos') || nameLower.includes('bank')) emoji = '🏦';
+                else if (nameLower.includes('food') || nameLower.includes('drink') || nameLower.includes('restaurant')) emoji = '🍲';
+                else if (nameLower.includes('hard') || nameLower.includes('build')) emoji = '🧱';
+                else if (nameLower.includes('barb') || nameLower.includes('beauty') || nameLower.includes('salon')) emoji = '💇';
+
+                return (
+                  <Link
+                    key={cat.id}
+                    href={`/search?category=${cat.id}`}
+                    className="bg-white border border-slate-200/90 text-slate-700 hover:border-emerald-500 hover:text-emerald-700 text-[11px] font-semibold px-3.5 py-2 rounded-xl whitespace-nowrap shadow-2xs transition active:scale-95 flex items-center gap-1.5 shrink-0"
+                  >
+                    <span>{emoji}</span>
+                    <span>{cat.name}</span>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}
