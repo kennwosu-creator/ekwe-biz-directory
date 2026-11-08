@@ -89,42 +89,101 @@ export default function FieldAgentPortalPage() {
           </div>
         </header>
 
-        <main className="max-w-md mx-auto px-4 pt-6">
+        <main className="max-w-md mx-auto px-4 pt-6 space-y-5">
           {!authenticated ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Agent Secure Login</h3>
-              <form onSubmit={handleLogin} className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Agent Code</label>
-                  <input
-                    type="text"
-                    required
-                    value={agentCode}
-                    onChange={e => setAgentCode(e.target.value)}
-                    placeholder="e.g. AG-EKW-01"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase"
-                  />
+            <>
+              {/* THE DAILY TASK WORKFLOW & GUIDELINES */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="border-b border-slate-100 pb-3">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                    📋 The Daily Task Workflow & Guidelines
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Core objectives: Social awareness + physical/digital shop data collection.
+                  </p>
                 </div>
-                <div>
-                  <label className="text-[11px] font-bold text-slate-600 block mb-1">4-Digit Security PIN</label>
-                  <input
-                    type="password"
-                    required
-                    maxLength={4}
-                    value={accessPin}
-                    onChange={e => setAccessPin(e.target.value)}
-                    placeholder="••••"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
+
+                <div className="space-y-3">
+                  {/* MORNING */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                      🌅 Morning Session
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 pt-1">Social Media Outreach</h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Share the directory link with a catchy local description (highlighting beer, garri, palm wine, and provisions for Christmas visitors) in at least 3 WhatsApp/Facebook groups, such as Ogbako Ekwe Dum, neighboring village groups, and diaspora/city union groups.
+                    </p>
+                  </div>
+
+                  {/* MIDDAY */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                      ☀️ Midday Session
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 pt-1">Merchant Acquisition & Ingestion</h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Identify at least 2 local businesses (chemists, provision stores, local food vendors/bukka, POS operators) either by walking through the village or finding them via local listings, and register them on the platform.
+                    </p>
+                  </div>
+
+                  {/* EVENING */}
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                      🌙 Evening Session
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 pt-1">Engagement & Reporting</h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Reply to comments or inquiries on group posts, encourage traders to check their WhatsApp links, and log into the Agent Portal below to submit the daily activity report before 8:00 PM.
+                    </p>
+                  </div>
                 </div>
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-sm"
-                >
-                  Access Agent Portal
-                </button>
-              </form>
-            </div>
+              </div>
+
+              {/* SECURE LOGIN CARD */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Agent Secure Login</h3>
+                  <Link
+                    href="/agents/register"
+                    className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 underline"
+                  >
+                    New Agent? Register ↗
+                  </Link>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Agent Code</label>
+                    <input
+                      type="text"
+                      required
+                      value={agentCode}
+                      onChange={e => setAgentCode(e.target.value)}
+                      placeholder="e.g. AG-EKW-01"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">4-Digit Security PIN</label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={4}
+                      value={accessPin}
+                      onChange={e => setAccessPin(e.target.value)}
+                      placeholder="••••"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-sm"
+                  >
+                    Access Agent Portal
+                  </button>
+                </form>
+              </div>
+            </>
           ) : (
             <div className="space-y-4">
               <div className="bg-emerald-900 text-white p-4 rounded-2xl shadow-sm flex items-center justify-between">
@@ -186,7 +245,6 @@ export default function FieldAgentPortalPage() {
           )}
         </main>
       </div>
-
     </div>
   );
 }

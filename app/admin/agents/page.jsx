@@ -86,6 +86,10 @@ export default function AdminAgentsPage() {
     }
   }
 
+  // Filter pending vs active/managed agents
+  const pendingAgents = agents.filter(a => a.status === 'pending' || !a.status);
+  const activeOrManagedAgents = agents.filter(a => a.status && a.status !== 'pending');
+
   return (
     <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-24 flex flex-col justify-between">
       <div>
@@ -106,7 +110,7 @@ export default function AdminAgentsPage() {
           </div>
           <div className="max-w-4xl mx-auto px-4 py-6">
             <h2 className="text-xl font-black uppercase tracking-wider">Field Agent Administration & Auditing Hub</h2>
-            <p className="text-xs text-emerald-200 mt-1">Manage field workers, security PINs, and verify daily task reports (Wage Evaluation: ₦50,000/mo)</p>
+            <p className="text-xs text-emerald-200 mt-1">Manage field workers, security PINs, registration approvals, and daily task reports (Wage Evaluation: ₦50,000/mo)</p>
           </div>
         </header>
 
@@ -121,66 +125,115 @@ export default function AdminAgentsPage() {
           </div>
 
           {activeTab === 'agents' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-3">
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Field Personnel</h3>
-                {loading ? (
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500">Loading agents...</div>
-                ) : agents.length > 0 ? (
-                  agents.map(agent => (
-                    <div key={agent.id} className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-slate-900">{agent.name || agent.full_name}</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">{agent.agent_code || 'AG'}</span>
+            <div className="space-y-6">
+              {/* PENDING AGENT REGISTRATIONS QUEUE */}
+              {pendingAgents.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-xs space-y-3">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <span>⏳</span> Pending Agent Registration Requests ({pendingAgents.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {pendingAgents.map(agent => (
+                      <div key={agent.id} className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-slate-900">{agent.name || agent.full_name}</h4>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-mono uppercase">{agent.agent_code || 'AG'}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600">📞 {agent.phone} | Region: <strong>{agent.region || 'General'}</strong></p>
                         </div>
-                        <p className="text-[11px] text-slate-500">📞 {agent.phone} | Region: {agent.region || 'General'} | PIN: <span className="font-mono font-bold text-emerald-700">{agent.access_pin}</span></p>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <button
+                            onClick={() => handleUpdateStatus(agent.id, 'active')}
+                            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shadow-2xs"
+                          >
+                            ✓ Approve
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStatus(agent.id, 'rejected')}
+                            className="flex-1 sm:flex-none bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shadow-2xs"
+                          >
+                            ✕ Reject
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={agent.status || 'active'}
-                          onChange={(e) => handleUpdateStatus(agent.id, e.target.value)}
-                          className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-semibold"
-                        >
-                          <option value="active">Active</option>
-                          <option value="suspended">Suspended</option>
-                        </select>
-                        <button onClick={() => handleDeleteAgent(agent.id)} className="text-[11px] font-bold text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500">No agents registered yet.</div>
-                )}
-              </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4 h-fit">
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Add Field Agent & PIN</h3>
-                <form onSubmit={handleCreateAgent} className="space-y-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
-                    <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Kenneth Nwosu" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Phone Number</label>
-                    <input type="text" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0803..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
+              {/* MAIN AGENTS GRID & FORM */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active & Approved Field Personnel</h3>
+                  {loading ? (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500">Loading agents...</div>
+                  ) : agents.length > 0 ? (
+                    agents.map(agent => (
+                      <div key={agent.id} className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex items-center justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-slate-900">{agent.name || agent.full_name}</h4>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase">{agent.agent_code || 'AG'}</span>
+                            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                              agent.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                              agent.status === 'suspended' ? 'bg-red-100 text-red-800' :
+                              agent.status === 'rejected' ? 'bg-slate-200 text-slate-700' :
+                              'bg-amber-100 text-amber-800'
+                            }`}>
+                              {agent.status || 'pending'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500">📞 {agent.phone} | Region: {agent.region || 'General'} | PIN: <span className="font-mono font-bold text-emerald-700">{agent.access_pin}</span></p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={agent.status || 'active'}
+                            onChange={(e) => handleUpdateStatus(agent.id, e.target.value)}
+                            className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-semibold"
+                          >
+                            <option value="active">Active</option>
+                            <option value="suspended">Suspended</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="pending">Pending</option>
+                          </select>
+                          <button onClick={() => handleDeleteAgent(agent.id)} className="text-[11px] font-bold text-red-600 hover:text-red-800 px-2 py-1">Delete</button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-500">No agents registered yet.</div>
+                  )}
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-4 h-fit">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">Add Field Agent & PIN</h3>
+                  <form onSubmit={handleCreateAgent} className="space-y-3">
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Agent Code</label>
-                      <input type="text" required value={agentCode} onChange={e => setAgentCode(e.target.value)} placeholder="AG-EKW-01" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
+                      <input type="text" required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Kenneth Nwosu" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Security PIN</label>
-                      <input type="text" required maxLength={4} value={accessPin} onChange={e => setAccessPin(e.target.value)} placeholder="4 digits" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Phone Number</label>
+                      <input type="text" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0803..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Assigned Region / Village</label>
-                    <input type="text" value={region} onChange={e => setRegion(e.target.value)} placeholder="e.g. Ekwe Central" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
-                  </div>
-                  <button type="submit" className="w-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-sm">Save Agent & PIN</button>
-                </form>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Agent Code</label>
+                        <input type="text" required value={agentCode} onChange={e => setAgentCode(e.target.value)} placeholder="AG-EKW-01" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-600 block mb-1">Security PIN</label>
+                        <input type="text" required maxLength={4} value={accessPin} onChange={e => setAccessPin(e.target.value)} placeholder="4 digits" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-600 block mb-1">Assigned Region / Village</label>
+                      <input type="text" value={region} onChange={e => setRegion(e.target.value)} placeholder="e.g. Ekwe Central" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                    </div>
+                    <button type="submit" className="w-full bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-sm">Save Agent & PIN</button>
+                  </form>
+                </div>
               </div>
             </div>
           )}
