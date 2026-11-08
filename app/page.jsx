@@ -88,7 +88,7 @@ export default async function HomePage() {
   const { towns, categories, events } = await getHomePageData();
 
   return (
-    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-32">
+    <div className="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
       {/* BRAND BANNER HEADER */}
       <section className="bg-emerald-950 text-white shadow-md">
         <div className="bg-emerald-900 px-4 py-3 text-center border-b border-emerald-800">
@@ -131,6 +131,28 @@ export default async function HomePage() {
               />
               <span className="absolute left-3 top-3.5 text-slate-400 text-xs">🔍</span>
             </form>
+          </div>
+
+          {/* Quick Action Navigation Bar */}
+          <div className="grid grid-cols-3 gap-2">
+            <Link
+              href="/register"
+              className="bg-emerald-800/95 hover:bg-emerald-700 text-white text-[11px] font-bold py-2.5 px-3 rounded-xl border border-emerald-700 shadow-sm transition flex items-center justify-center gap-1"
+            >
+              <span>+</span> Register Shop
+            </Link>
+            <Link
+              href="/events"
+              className="bg-emerald-800/95 hover:bg-emerald-700 text-white text-[11px] font-bold py-2.5 px-3 rounded-xl border border-emerald-700 shadow-sm transition flex items-center justify-center gap-1"
+            >
+              <span>🎉</span> Events
+            </Link>
+            <Link
+              href="/personals"
+              className="bg-amber-800/95 hover:bg-amber-700 text-amber-100 text-[11px] font-bold py-2.5 px-3 rounded-xl border border-amber-700 shadow-sm transition flex items-center justify-center gap-1"
+            >
+              <span>📜</span> Personals
+            </Link>
           </div>
 
           <GpsShareWidget />
@@ -267,7 +289,7 @@ export default async function HomePage() {
               PORTALS & TOOLS
             </h2>
             <Link
-              href="/agents"
+              href="/agents/portal"
               className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 transition"
             >
               Field Agent Hub →
@@ -311,6 +333,24 @@ export default async function HomePage() {
           </div>
         </section>
       </main>
+
+      {/* FOOTER SECTION PROPERLY CONTAINED & CLEARED */}
+      <footer className="mt-16 border-t border-slate-200 bg-white py-6 px-4 text-center text-xs text-slate-500 space-y-3">
+        <p>© {new Date().getFullYear()} CommunityShops. Connecting local village trade.</p>
+        
+        {/* Admin & Management Quick Access Links */}
+        <div className="flex flex-wrap justify-center gap-4 text-[11px] font-semibold text-slate-600">
+          <Link href="/agents/portal" className="hover:text-emerald-600 transition">🎯 Field Agent Portal</Link>
+          <span>•</span>
+          <Link href="/admin/businesses" className="hover:text-emerald-600 transition">🛡️ Merchants Admin</Link>
+          <span>•</span>
+          <Link href="/admin/agents" className="hover:text-emerald-600 transition">🎯 Agents Admin</Link>
+          <span>•</span>
+          <Link href="/admin/events" className="hover:text-emerald-600 transition">🎉 Events Admin</Link>
+          <span>•</span>
+          <Link href="/personals" className="hover:text-emerald-600 transition">📜 Personals</Link>
+        </div>
+      </footer>
     </div>
   );
 }
