@@ -1,5 +1,6 @@
 import './globals.css';
 import InstallPrompt from '@/components/InstallPrompt';
+import Footer from '@/components/Footer';
 
 // Next.js 14/15 Viewport export for theme and screen configuration
 export const viewport = {
@@ -44,8 +45,11 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="bg-slate-100 text-slate-800 antialiased min-h-screen font-sans pb-24 relative">
-        {children}
+      <body className="bg-slate-100 text-slate-800 antialiased min-h-screen font-sans pb-24 relative flex flex-col justify-between">
+        <div className="flex-1">
+          {children}
+        </div>
+        <Footer />
         <InstallPrompt />
       </body>
     </html>
